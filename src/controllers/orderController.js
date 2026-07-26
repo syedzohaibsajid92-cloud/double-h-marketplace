@@ -1,70 +1,96 @@
 const pool = require("../config/db");
 
+// 1. PLACE ORDER (With Database Transaction & Stock Deduction)
 const placeOrder = async (req, res) => {
+    const client = await pool.connect(); // Acquire dedicated client for transaction
+
     try {
+        const user_id = req.user.id; // Securely extracted from JWT
+        const { address_id, payment_method = "COD" } = req.body;
 
-        const { user_id } = req.body;
+        if (!address_id) {
+            return res.status(400).json({ message: "address_id is required." });
+        }
 
-        // Get all cart items
-        const cartItems = await pool.query(
-            `SELECT
+        // Verify shipping address belongs to authenticated user
+        const addressCheck = await client.query(
+            "SELECT id FROM addresses WHERE id = $1 AND user_id = $2",
+            [address_id, user_id]
+        );
+
+        if (addressCheck.rows.length === 0) {
+            return res.status(404).json({ message: "Invalid shipping address." });
+        }
+
+        // Retrieve user's cart items
+        const cartItemsResult = await client.query(
+            `SELECT 
                 cart.product_id,
                 cart.quantity,
-                products.price
+                products.price,
+                products.stock,
+                products.name
             FROM cart
-            JOIN products
-                ON cart.product_id = products.id
+            JOIN products ON cart.product_id = products.id
             WHERE cart.user_id = $1`,
             [user_id]
         );
 
-        if (cartItems.rows.length === 0) {
-            return res.status(400).json({
-                message: "Cart is empty"
-            });
+        if (cartItemsResult.rows.length === 0) {
+            return res.status(400).json({ message: "Cart is empty." });
         }
 
-        // Calculate total amount
-        let totalAmount = 0;
+        const cartItems = cartItemsResult.rows;
 
-        cartItems.rows.forEach(item => {
-            totalAmount += item.price * item.quantity;
-        });
+        // Verify stock availability for all items
+        for (const item of cartItems) {
+            if (item.quantity > item.stock) {
+                return res.status(400).json({
+                    message: `Insufficient stock for ${item.name}. Available: ${item.stock}, Requested: ${item.quantity}`
+                });
+            }
+        }
 
-        // Create order
-        const orderResult = await pool.query(
-            `INSERT INTO orders
-            (user_id, total_amount)
-            VALUES ($1, $2)
-            RETURNING *`,
-            [user_id, totalAmount]
+        // Calculate Subtotal & Grand Total
+        const subtotal = cartItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+        const shippingFee = subtotal > 5000 ? 0 : 250;
+        const tax = parseFloat((subtotal * 0.05).toFixed(2));
+        const grandTotal = parseFloat((subtotal + shippingFee + tax).toFixed(2));
+
+        // START TRANSACTION
+        await client.query("BEGIN");
+
+        // Step A: Create Order
+        const orderResult = await client.query(
+            `INSERT INTO orders (user_id, address_id, total_amount, payment_method, status)
+             VALUES ($1, $2, $3, $4, 'pending')
+             RETURNING *`,
+            [user_id, address_id, grandTotal, payment_method]
         );
 
         const orderId = orderResult.rows[0].id;
 
-        // Insert order items
-        for (const item of cartItems.rows) {
-
-            await pool.query(
-                `INSERT INTO order_items
-                (order_id, product_id, quantity, price)
-                VALUES ($1, $2, $3, $4)`,
-                [
-                    orderId,
-                    item.product_id,
-                    item.quantity,
-                    item.price
-                ]
+        // Step B: Insert Order Items & Deduct Product Stock
+        for (const item of cartItems) {
+            await client.query(
+                `INSERT INTO order_items (order_id, product_id, quantity, price)
+                 VALUES ($1, $2, $3, $4)`,
+                [orderId, item.product_id, item.quantity, item.price]
             );
 
+            await client.query(
+                `UPDATE products 
+                 SET stock = stock - $1 
+                 WHERE id = $2`,
+                [item.quantity, item.product_id]
+            );
         }
 
-        // Clear user's cart
-        await pool.query(
-            `DELETE FROM cart
-             WHERE user_id = $1`,
-            [user_id]
-        );
+        // Step C: Clear User's Cart
+        await client.query(`DELETE FROM cart WHERE user_id = $1`, [user_id]);
+
+        // COMMIT TRANSACTION
+        await client.query("COMMIT");
 
         res.status(201).json({
             message: "Order placed successfully",
@@ -72,98 +98,86 @@ const placeOrder = async (req, res) => {
         });
 
     } catch (error) {
-
+        await client.query("ROLLBACK"); // Rollback all DB actions if an error occurs
         console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        res.status(500).json({ message: "Server Error during order placement" });
+    } finally {
+        client.release(); // Release client connection back to pool
     }
 };
 
-// Get User Orders
+// 2. GET USER ORDER HISTORY (Self-only)
 const getUserOrders = async (req, res) => {
     try {
-
-        const { userId } = req.params;
+        const user_id = req.user.id; // Enforce logged-in user context
 
         const result = await pool.query(
-            `SELECT *
-             FROM orders
-             WHERE user_id = $1
-             ORDER BY created_at DESC`,
-            [userId]
+            `SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
+            [user_id]
         );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: "No orders found for this user"
-            });
-        }
 
         res.status(200).json(result.rows);
 
     } catch (error) {
-
         console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        res.status(500).json({ message: "Server Error" });
     }
 };
 
-// Get Order By ID
+// 3. GET SINGLE ORDER DETAILS (Ownership protected)
 const getOrderById = async (req, res) => {
     try {
-
         const { id } = req.params;
+        const user_id = req.user.id;
 
-        const result = await pool.query(
-            `SELECT *
-             FROM orders
-             WHERE id = $1`,
+        const orderResult = await pool.query(
+            `SELECT o.*, a.full_name, a.phone, a.address_line1, a.city, a.country 
+             FROM orders o
+             LEFT JOIN addresses a ON o.address_id = a.id
+             WHERE o.id = $1 AND o.user_id = $2`,
+            [id, user_id]
+        );
+
+        if (orderResult.rows.length === 0) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        const itemsResult = await pool.query(
+            `SELECT oi.*, p.name, p.image_url 
+             FROM order_items oi
+             JOIN products p ON oi.product_id = p.id
+             WHERE oi.order_id = $1`,
             [id]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: "Order not found"
-            });
-        }
-
-        res.status(200).json(result.rows[0]);
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
+        res.status(200).json({
+            order: orderResult.rows[0],
+            items: itemsResult.rows
         });
 
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server Error" });
     }
 };
 
-// Cancel Order
+// 4. CANCEL ORDER (Only if order belongs to user and is 'pending')
 const cancelOrder = async (req, res) => {
     try {
-
         const { id } = req.params;
+        const user_id = req.user.id;
 
         const result = await pool.query(
             `UPDATE orders
              SET status = 'Cancelled'
-             WHERE id = $1
+             WHERE id = $1 AND user_id = $2 AND status = 'pending'
              RETURNING *`,
-            [id]
+            [id, user_id]
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: "Order not found"
+            return res.status(400).json({
+                message: "Order not found, already processed, or permission denied."
             });
         }
 
@@ -173,35 +187,22 @@ const cancelOrder = async (req, res) => {
         });
 
     } catch (error) {
-
         console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        res.status(500).json({ message: "Server Error" });
     }
 };
-// Get All Orders
+
+// 5. GET ALL ORDERS (Admin-only route)
 const getAllOrders = async (req, res) => {
     try {
-
-        const result = await pool.query(
-            "SELECT * FROM orders ORDER BY id ASC"
-        );
-
+        const result = await pool.query("SELECT * FROM orders ORDER BY id DESC");
         res.status(200).json(result.rows);
-
     } catch (error) {
-
         console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        res.status(500).json({ message: "Server Error" });
     }
 };
+
 module.exports = {
     placeOrder,
     getUserOrders,

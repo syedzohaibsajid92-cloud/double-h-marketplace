@@ -3,7 +3,34 @@ const pool = require("../config/db");
 // Add product to wishlist
 const addToWishlist = async (req, res) => {
     try {
-        const { user_id, product_id } = req.body;
+        const user_id = req.user.id;
+const { product_id } = req.body;
+// Check if product exists
+const product = await pool.query(
+    "SELECT id FROM products WHERE id = $1",
+    [product_id]
+);
+
+if (product.rows.length === 0) {
+    return res.status(404).json({
+        message: "Product not found."
+    });
+}
+
+// Prevent duplicate wishlist items
+const duplicate = await pool.query(
+    `SELECT id
+     FROM wishlist
+     WHERE user_id = $1
+     AND product_id = $2`,
+    [user_id, product_id]
+);
+
+if (duplicate.rows.length > 0) {
+    return res.status(409).json({
+        message: "Product already exists in wishlist."
+    });
+}
 
         const result = await pool.query(
             `INSERT INTO wishlist (user_id, product_id)
@@ -29,7 +56,7 @@ const addToWishlist = async (req, res) => {
 // Get wishlist by user
 const getWishlist = async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user.id;
 
         const result = await pool.query(
             `SELECT
@@ -59,13 +86,15 @@ const getWishlist = async (req, res) => {
 const removeFromWishlist = async (req, res) => {
     try {
         const { id } = req.params;
+        const userId = req.user.id;
 
-        const result = await pool.query(
-            `DELETE FROM wishlist
-             WHERE id = $1
-             RETURNING *`,
-            [id]
-        );
+     const result = await pool.query(
+    `DELETE FROM wishlist
+     WHERE id = $1
+     AND user_id = $2
+     RETURNING *`,
+    [id, userId]
+);
 
         if (result.rows.length === 0) {
             return res.status(404).json({

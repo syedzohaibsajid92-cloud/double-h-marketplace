@@ -1,47 +1,106 @@
 const pool = require("../config/db");
 
 // Create Vendor
+// Create Vendor
 const createVendor = async (req, res) => {
     try {
 
+        const userId = req.user.id;
+
         const {
-            user_id,
             business_name,
-            description,
+            business_email,
+            business_phone,
+            business_address,
+            city,
             country,
+            description,
             logo_url,
-            website_url,
-            commission_rate
+            website_url
         } = req.body;
 
+        // ==========================
+        // Required Field Validation
+        // ==========================
+        if (
+            !business_name ||
+            !business_email ||
+            !business_phone ||
+            !business_address ||
+            !city ||
+            !country
+        ) {
+            return res.status(400).json({
+                message: "Please provide all required vendor information."
+            });
+        }
+
+        // ==========================
+        // Check Existing Vendor
+        // ==========================
+        const existingVendor = await pool.query(
+            "SELECT id FROM vendors WHERE user_id = $1",
+            [userId]
+        );
+
+        if (existingVendor.rows.length > 0) {
+            return res.status(409).json({
+                message: "You already have a vendor account."
+            });
+        }
+
+        // ==========================
+        // Create Vendor
+        // ==========================
         const result = await pool.query(
             `
             INSERT INTO vendors
             (
                 user_id,
                 business_name,
-                description,
+                business_email,
+                business_phone,
+                business_address,
+                city,
                 country,
+                description,
                 logo_url,
                 website_url,
-                commission_rate
+                commission_rate,
+                approval_status,
+                status,
+                is_active,
+                pending_payout,
+                total_sales
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7)
+            VALUES
+            (
+                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+                0,
+                'Pending',
+                'pending',
+                FALSE,
+                0,
+                0
+            )
             RETURNING *;
             `,
             [
-                user_id,
+                userId,
                 business_name,
-                description,
+                business_email,
+                business_phone,
+                business_address,
+                city,
                 country,
+                description,
                 logo_url,
-                website_url,
-                commission_rate
+                website_url
             ]
         );
 
         res.status(201).json({
-            message: "Vendor created successfully",
+            message: "Vendor registration submitted successfully. Waiting for admin approval.",
             vendor: result.rows[0]
         });
 
@@ -49,24 +108,10 @@ const createVendor = async (req, res) => {
 
         console.error(error);
 
-        // User already has a vendor account
+        // Duplicate business_email
         if (error.code === "23505") {
             return res.status(409).json({
-                message: "This user already has a vendor account."
-            });
-        }
-
-        // Missing required field
-        if (error.code === "23502") {
-            return res.status(400).json({
-                message: "Required vendor information is missing."
-            });
-        }
-
-        // Foreign key error
-        if (error.code === "23503") {
-            return res.status(400).json({
-                message: "Invalid user ID."
+                message: "A vendor with this business email already exists."
             });
         }
 

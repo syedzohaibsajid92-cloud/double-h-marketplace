@@ -1,7 +1,6 @@
 const express = require("express");
-
 const router = express.Router();
-
+const verifyToken = require("../middleware/authMiddleware");
 const {
     getProducts,
     getProductById,
@@ -12,25 +11,15 @@ const {
     filterProducts
 } = require("../controllers/productController");
 
-// Search products
+// Public routes
 router.get("/search", searchProducts);
-
-// Filter products
 router.get("/filter", filterProducts);
-
-// Get all products
 router.get("/", getProducts);
-
-// Get single product
 router.get("/:id", getProductById);
 
-// Create product
-router.post("/", createProduct);
-
-// Update product
-router.put("/:id", updateProduct);
-
-// Delete product
-router.delete("/:id", deleteProduct);
+// Protected routes (Require Authentication)
+router.post("/", verifyToken, createProduct);       // <-- Added verifyToken
+router.put("/:id", verifyToken, updateProduct);    // <-- Added verifyToken
+router.delete("/:id", verifyToken, deleteProduct); // <-- Added verifyToken
 
 module.exports = router;

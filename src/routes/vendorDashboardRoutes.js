@@ -6,6 +6,8 @@ const {
     getVendorDashboard
 } = require("../controllers/vendorDashboardController");
 
-router.get("/:vendorId", getVendorDashboard);
+const verifyToken = require("../middleware/authMiddleware");
+
+router.get("/:vendorId", verifyToken, getVendorDashboard);
 
 module.exports = router;

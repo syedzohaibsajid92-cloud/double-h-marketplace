@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
+
 const authenticate = require("../middleware/authMiddleware"); // matches your existing file
 const requireAdmin = require("../middleware/requireAdmin");
 

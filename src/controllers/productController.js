@@ -59,64 +59,67 @@ const getProductById = async (req, res) => {
     }
 };
 
-// Create a new product
 const createProduct = async (req, res) => {
     try {
+        const userId = req.user.id; // From verifyToken middleware
 
+        // 1. Get the vendor record associated with this user
+        const vendorResult = await pool.query(
+            "SELECT id FROM vendors WHERE user_id = $1",
+            [userId]
+        );
+
+        if (vendorResult.rows.length === 0) {
+            return res.status(403).json({
+                message: "Forbidden: You must have an approved vendor account to create products."
+            });
+        }
+
+        const vendorId = vendorResult.rows[0].id;
+
+        // 2. Extract product details from request body
         const {
-            category_id,
             name,
             description,
-            brand,
-            sku,
             price,
             stock,
-            discount,
+            category_id,
             image_url
         } = req.body;
 
-        const result = await pool.query(
-            `INSERT INTO products
-            (
-                category_id,
-                name,
-                description,
-                brand,
-                sku,
-                price,
-                stock,
-                discount,
-                image_url
-            )
-            VALUES
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-            RETURNING *`,
+        // 3. Simple validation for required fields
+        if (!name || !price || stock === undefined) {
+            return res.status(400).json({
+                message: "Please provide product name, price, and stock."
+            });
+        }
+
+        // 4. Insert product linked to this vendorId
+        const newProduct = await pool.query(
+            `INSERT INTO products 
+                (vendor_id, name, description, price, stock, category_id, image_url)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING *`,
             [
-                category_id,
+                vendorId,
                 name,
-                description,
-                brand,
-                sku,
+                description || null,
                 price,
                 stock,
-                discount,
-                image_url
+                category_id || null,
+                image_url || null
             ]
         );
 
+        // 5. Send success response back to Postman/Frontend
         res.status(201).json({
             message: "Product created successfully",
-            product: result.rows[0]
+            product: newProduct.rows[0]
         });
 
     } catch (error) {
-
         console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        res.status(500).json({ message: "Server Error" });
     }
 };
 
@@ -319,6 +322,7 @@ else {
 
     }
 };
+
 module.exports = {
     getProducts,
     getProductById,

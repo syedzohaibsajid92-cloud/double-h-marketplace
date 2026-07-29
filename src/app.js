@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 
+// Route imports
 const userRoutes = require("./routes/userRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const productRoutes = require("./routes/productRoutes");
@@ -25,17 +26,23 @@ const addressRoutes = require("./routes/addressRoutes");
 const checkoutRoutes = require("./routes/checkoutRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 const returnRoutes = require("./routes/returnRoutes");
+const inventoryRoutes = require("./routes/inventoryroutes");
+
+
 const app = express();
 
+// Middlewares
 app.use(express.json());
 app.use(cors());
 app.use(helmet());
 app.use(morgan("dev"));
 
+// Root Endpoint
 app.get("/", (req, res) => {
-    res.send("Double H Marketplace API is running");
+  res.send("Double H Marketplace API is running");
 });
 
+// Route Endpoints
 app.use("/api/users", userRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
@@ -47,7 +54,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/vendor-dashboard", vendorDashboardRoutes);
-app.use("/api/vendors",vendorRoutes);
+app.use("/api/vendors", vendorRoutes);
 app.use("/api/commissions", commissionRoutes);
 app.use("/api/b2b", b2bRoutes);
 app.use("/api/disputes", disputeRoutes);
@@ -57,5 +64,8 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/invoices", invoiceRoutes);
-app.use('/api/returns', returnRoutes);
+app.use("/api/returns", returnRoutes);
+app.use("/api/inventory", inventoryRoutes);
+
+
 module.exports = app;

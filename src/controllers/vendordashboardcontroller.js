@@ -12,7 +12,8 @@ const getVendorDashboard = async (req, res) => {
                 total_sales,
                 pending_payout,
                 commission_rate,
-                is_active
+                is_active,
+                user_id
             FROM vendors
             WHERE id = $1
             `,
@@ -22,6 +23,19 @@ const getVendorDashboard = async (req, res) => {
         if (vendor.rows.length === 0) {
             return res.status(404).json({
                 message: "Vendor not found"
+            });
+        }
+
+        const vendorData = vendor.rows[0];
+
+        // Ownership check: admin can view any vendor; a vendor can only view their own
+        const requesterRole = (req.user.role || "").toLowerCase();
+        const isAdmin = requesterRole === "admin";
+        const isOwner = vendorData.user_id === req.user.id;
+
+        if (!isAdmin && !isOwner) {
+            return res.status(403).json({
+                message: "Access denied. You can only view your own vendor dashboard."
             });
         }
 
@@ -45,7 +59,13 @@ const getVendorDashboard = async (req, res) => {
 
         res.status(200).json({
 
-            vendor: vendor.rows[0],
+            vendor: {
+                business_name: vendorData.business_name,
+                total_sales: vendorData.total_sales,
+                pending_payout: vendorData.pending_payout,
+                commission_rate: vendorData.commission_rate,
+                is_active: vendorData.is_active
+            },
 
             statistics: {
                 total_products: totalProducts.rows[0].total,

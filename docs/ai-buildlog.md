@@ -119,3 +119,27 @@ I'd be happy to help you find what you need!
 
 Exit code: 0. Wrapper confirmed working end-to-end.
 
+---
+
+## 2026-07-29 — Pin model to gemini-3.5-flash
+
+**Pinned model:** `gemini-3.5-flash`
+
+**Reason:** Only model that returned a successful `generateContent` response
+on this API key after exhaustive testing. Summary of all candidates tested:
+
+| Model | Outcome |
+|-------|---------|
+| `gemini-2.5-flash` | 404 — retired/unavailable for new API keys |
+| `gemini-2.5-flash-lite` | 404 — same |
+| `gemini-2.0-flash` | 429 — free-tier quota limit is 0 RPD on this key |
+| `gemini-2.0-flash-lite` | 429 — same |
+| `gemini-flash-latest` (alias) | ✅ Worked (used temporarily) |
+| `gemini-3.5-flash` | ✅ Confirmed working (user-verified live test) |
+
+`gemini-3.5-flash` is pinned rather than using the `gemini-flash-latest` alias
+so the behaviour is deterministic and doesn't silently shift if Google updates
+what the alias resolves to.
+
+**Files changed:** `src/services/geminiService.js` — `MODEL` constant updated.
+

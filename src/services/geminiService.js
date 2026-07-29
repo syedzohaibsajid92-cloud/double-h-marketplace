@@ -8,10 +8,12 @@ const SYSTEM_PROMPT =
     "specific to this store, say so honestly rather than guessing. Respond in the " +
     "same language the user writes in (English or Urdu).";
 
-// gemini-flash-latest is a stable alias that resolves to the current GA flash
-// model available on this API key. Using gemini-2.5-flash here returns a 404
-// on certain key tiers even though the model is listed — see docs/ai-buildlog.md.
-const MODEL = "gemini-flash-latest";
+// Pinned to gemini-3.5-flash: the only model confirmed working on this API key.
+// gemini-2.5-flash / gemini-2.5-flash-lite return 404 (retired for new keys).
+// gemini-2.0-flash / gemini-2.0-flash-lite return 429 (zero free-tier quota on this key).
+// See docs/ai-buildlog.md for the full model discovery log.
+const MODEL = "gemini-3.5-flash";
+
 
 /**
  * Generate a chat reply from the Gemini API.

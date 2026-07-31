@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const path = require("path"); // Added path module
 
 // Route imports
 const userRoutes = require("./routes/userRoutes");
@@ -27,6 +28,10 @@ const checkoutRoutes = require("./routes/checkoutRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 const returnRoutes = require("./routes/returnRoutes");
 const inventoryRoutes = require("./routes/inventoryroutes");
+const imageRoutes = require("./routes/imageRoutes"); // Added Image routes
+const brandRoutes = require('./routes/brandRoutes');
+const stockRoutes = require('./routes/stockRoutes');
+const discountRoutes = require('./routes/discountRoutes');
 
 
 const app = express();
@@ -34,8 +39,15 @@ const app = express();
 // Middlewares
 app.use(express.json());
 app.use(cors());
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" } // Allows frontend to fetch uploaded images freely
+  })
+);
 app.use(morgan("dev"));
+
+// Serve static files from the uploads directory (located at the root level)
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Root Endpoint
 app.get("/", (req, res) => {
@@ -66,6 +78,8 @@ app.use("/api/checkout", checkoutRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/returns", returnRoutes);
 app.use("/api/inventory", inventoryRoutes);
-
-
+app.use("/api/images", imageRoutes); // Added Image API route
+app.use('/api/brands', brandRoutes);
+app.use('/api/stock', stockRoutes);
+app.use('/api/discounts', discountRoutes);
 module.exports = app;

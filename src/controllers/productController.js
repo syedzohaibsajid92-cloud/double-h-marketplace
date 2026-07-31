@@ -1,69 +1,119 @@
 const pool = require("../config/db");
 
-// Get all products
+// 1. GET ALL PRODUCTS (Supports Search, Filtering, & Sorting in ONE place)
+// 1. GET ALL PRODUCTS (Supports Search, Filtering, & Sorting)
 const getProducts = async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT
-                products.*,
-                categories.name AS category_name
-            FROM products
-            JOIN categories
-            ON products.category_id = categories.id
-            ORDER BY products.id ASC
-        `);
+        const { category, brand, minPrice, maxPrice, search, sort } = req.query;
 
-        res.status(200).json(result.rows);
+        let query = `
+            SELECT 
+                p.*,
+                c.name AS category_name,
+                v.business_name AS vendor_name
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN vendors v ON p.vendor_id = v.id
+            WHERE 1=1
+        `;
+
+        const values = [];
+        let index = 1;
+
+        // Dynamic Filtering
+        if (category) {
+            query += ` AND p.category_id = $${index}`;
+            values.push(category);
+            index++;
+        }
+
+        if (brand) {
+            query += ` AND LOWER(p.brand) = LOWER($${index})`;
+            values.push(brand);
+            index++;
+        }
+
+        if (minPrice) {
+            query += ` AND p.price >= $${index}`;
+            values.push(minPrice);
+            index++;
+        }
+
+        if (maxPrice) {
+            query += ` AND p.price <= $${index}`;
+            values.push(maxPrice);
+            index++;
+        }
+
+        if (search) {
+            query += ` AND (LOWER(p.name) LIKE LOWER($${index}) OR LOWER(p.description) LIKE LOWER($${index}))`;
+            values.push(`%${search}%`);
+            index++;
+        }
+
+        // Sorting
+        if (sort === "price_asc") {
+            query += ` ORDER BY p.price ASC`;
+        } else if (sort === "price_desc") {
+            query += ` ORDER BY p.price DESC`;
+        } else if (sort === "newest") {
+            query += ` ORDER BY p.created_at DESC`;
+        } else {
+            query += ` ORDER BY p.id ASC`;
+        }
+
+        const result = await pool.query(query, values);
+
+        res.status(200).json({
+            success: true,
+            count: result.rows.length,
+            products: result.rows
+        });
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
+        console.error("Error in getProducts:", error);
+        res.status(500).json({ message: "Server Error" });
     }
 };
-// Get product by ID
+
+// 2. GET SINGLE PRODUCT BY ID
 const getProductById = async (req, res) => {
     try {
-
         const { id } = req.params;
 
         const result = await pool.query(
-            `SELECT
-                products.*,
-                categories.name AS category_name
-             FROM products
-             JOIN categories
-             ON products.category_id = categories.id
-             WHERE products.id = $1`,
+            `SELECT 
+                p.*,
+                c.name AS category_name,
+                v.business_name AS vendor_name
+             FROM products p
+             LEFT JOIN categories c ON p.category_id = c.id
+             LEFT JOIN vendors v ON p.vendor_id = v.id
+             WHERE p.id = $1`,
             [id]
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: "Product not found"
-            });
+            return res.status(404).json({ message: "Product not found" });
         }
 
-        res.status(200).json(result.rows[0]);
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
+        res.status(200).json({
+            success: true,
+            product: result.rows[0]
         });
 
+    } catch (error) {
+        console.error("Error in getProductById:", error);
+        res.status(500).json({ message: "Server Error" });
     }
 };
 
+// 3. CREATE PRODUCT (Vendor Only)
 const createProduct = async (req, res) => {
     try {
-        const userId = req.user.id; // From verifyToken middleware
+        const userId = req.user.id; // From authMiddleware
 
-        // 1. Get the vendor record associated with this user
+        // Check if user is a vendor
         const vendorResult = await pool.query(
             "SELECT id FROM vendors WHERE user_id = $1",
             [userId]
@@ -71,63 +121,75 @@ const createProduct = async (req, res) => {
 
         if (vendorResult.rows.length === 0) {
             return res.status(403).json({
-                message: "Forbidden: You must have an approved vendor account to create products."
+                message: "Forbidden: You must have a registered vendor account to create products."
             });
         }
 
         const vendorId = vendorResult.rows[0].id;
 
-        // 2. Extract product details from request body
         const {
             name,
             description,
+            brand,
+            sku,
             price,
             stock,
+            discount,
             category_id,
-            image_url
+            image_url,
+            specifications
         } = req.body;
 
-        // 3. Simple validation for required fields
         if (!name || !price || stock === undefined) {
             return res.status(400).json({
                 message: "Please provide product name, price, and stock."
             });
         }
 
-        // 4. Insert product linked to this vendorId
         const newProduct = await pool.query(
             `INSERT INTO products 
-                (vendor_id, name, description, price, stock, category_id, image_url)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (vendor_id, category_id, name, description, brand, sku, price, stock, discount, image_url, specifications, approval_status, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', 'active')
              RETURNING *`,
             [
                 vendorId,
+                category_id || null,
                 name,
                 description || null,
+                brand || null,
+                sku || null,
                 price,
                 stock,
-                category_id || null,
-                image_url || null
+                discount || 0.00,
+                image_url || null,
+                specifications ? JSON.stringify(specifications) : '{}'
             ]
         );
 
-        // 5. Send success response back to Postman/Frontend
         res.status(201).json({
-            message: "Product created successfully",
+            success: true,
+            message: "Product created successfully (Pending Approval).",
             product: newProduct.rows[0]
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Error in createProduct:", error);
         res.status(500).json({ message: "Server Error" });
     }
 };
 
-// Update product
+// 4. UPDATE PRODUCT (Vendor Owner Only - Partial Update Safe)
 const updateProduct = async (req, res) => {
     try {
-
+        const userId = req.user.id;
         const { id } = req.params;
+
+        // Verify vendor ownership
+        const vendorResult = await pool.query("SELECT id FROM vendors WHERE user_id = $1", [userId]);
+        if (vendorResult.rows.length === 0) {
+            return res.status(403).json({ message: "Vendor account not found." });
+        }
+        const vendorId = vendorResult.rows[0].id;
 
         const {
             category_id,
@@ -138,188 +200,92 @@ const updateProduct = async (req, res) => {
             price,
             stock,
             discount,
-            image_url
+            image_url,
+            specifications
         } = req.body;
 
         const result = await pool.query(
             `UPDATE products
              SET
-                category_id = $1,
-                name = $2,
-                description = $3,
-                brand = $4,
-                sku = $5,
-                price = $6,
-                stock = $7,
-                discount = $8,
-                image_url = $9
-             WHERE id = $10
+                category_id = COALESCE($1, category_id),
+                name = COALESCE($2, name),
+                description = COALESCE($3, description),
+                brand = COALESCE($4, brand),
+                sku = COALESCE($5, sku),
+                price = COALESCE($6, price),
+                stock = COALESCE($7, stock),
+                discount = COALESCE($8, discount),
+                image_url = COALESCE($9, image_url),
+                specifications = COALESCE($10, specifications),
+                updated_at = NOW()
+             WHERE id = $11 AND vendor_id = $12
              RETURNING *`,
             [
-                category_id,
-                name,
-                description,
-                brand,
-                sku,
-                price,
-                stock,
-                discount,
-                image_url,
-                id
+                category_id || null,
+                name || null,
+                description || null,
+                brand || null,
+                sku || null,
+                price || null,
+                stock !== undefined ? stock : null,
+                discount !== undefined ? discount : null,
+                image_url || null,
+                specifications ? JSON.stringify(specifications) : null,
+                id,
+                vendorId
             ]
         );
 
         if (result.rows.length === 0) {
             return res.status(404).json({
-                message: "Product not found"
+                message: "Product not found or you are not authorized to edit this product."
             });
         }
 
         res.status(200).json({
+            success: true,
             message: "Product updated successfully",
             product: result.rows[0]
         });
 
     } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        console.error("Error in updateProduct:", error);
+        res.status(500).json({ message: "Server Error" });
     }
 };
-// Delete product
+
+// 5. DELETE PRODUCT (Vendor Owner Only)
 const deleteProduct = async (req, res) => {
     try {
-
+        const userId = req.user.id;
         const { id } = req.params;
 
+        const vendorResult = await pool.query("SELECT id FROM vendors WHERE user_id = $1", [userId]);
+        if (vendorResult.rows.length === 0) {
+            return res.status(403).json({ message: "Vendor account not found." });
+        }
+        const vendorId = vendorResult.rows[0].id;
+
         const result = await pool.query(
-            "DELETE FROM products WHERE id = $1 RETURNING *",
-            [id]
+            "DELETE FROM products WHERE id = $1 AND vendor_id = $2 RETURNING *",
+            [id, vendorId]
         );
 
         if (result.rows.length === 0) {
             return res.status(404).json({
-                message: "Product not found"
+                message: "Product not found or you are not authorized to delete this product."
             });
         }
 
         res.status(200).json({
+            success: true,
             message: "Product deleted successfully",
             product: result.rows[0]
         });
 
     } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
-    }
-};
-// Search Products
-const searchProducts = async (req, res) => {
-    try {
-
-        const { keyword } = req.query;
-
-        const result = await pool.query(
-            `SELECT *
-             FROM products
-             WHERE LOWER(name) LIKE LOWER($1)`,
-            [`%${keyword}%`]
-        );
-
-        res.status(200).json(result.rows);
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
-    }
-};
-// Filter Products
-const filterProducts = async (req, res) => {
-    try {
-
-        const {
-            category,
-            brand,
-            minPrice,
-            maxPrice,
-            sort
-        } = req.query;
-
-        let query = `
-            SELECT
-                products.*,
-                categories.name AS category_name
-            FROM products
-            JOIN categories
-            ON products.category_id = categories.id
-            WHERE 1=1
-        `;
-
-        const values = [];
-        let index = 1;
-
-        if (category) {
-            query += ` AND products.category_id = $${index}`;
-            values.push(category);
-            index++;
-        }
-
-        if (brand) {
-            query += ` AND LOWER(products.brand) = LOWER($${index})`;
-            values.push(brand);
-            index++;
-        }
-
-        if (minPrice) {
-            query += ` AND products.price >= $${index}`;
-            values.push(minPrice);
-            index++;
-        }
-
-        if (maxPrice) {
-            query += ` AND products.price <= $${index}`;
-            values.push(maxPrice);
-            index++;
-        }
-
-        if (sort === "price_asc") {
-    query += ` ORDER BY products.price ASC`;
-}
-else if (sort === "price_desc") {
-    query += ` ORDER BY products.price DESC`;
-}
-else if (sort === "newest") {
-    query += ` ORDER BY products.created_at DESC`;
-}
-else {
-    query += ` ORDER BY products.id ASC`;
-}
-        const result = await pool.query(query, values);
-
-        res.status(200).json(result.rows);
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        console.error("Error in deleteProduct:", error);
+        res.status(500).json({ message: "Server Error" });
     }
 };
 
@@ -328,7 +294,5 @@ module.exports = {
     getProductById,
     createProduct,
     updateProduct,
-    deleteProduct,
-    searchProducts,
-    filterProducts
+    deleteProduct
 };

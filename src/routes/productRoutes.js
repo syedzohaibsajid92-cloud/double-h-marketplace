@@ -6,20 +6,16 @@ const {
     getProductById,
     createProduct,
     updateProduct,
-    deleteProduct,
-    searchProducts,
-    filterProducts
+    deleteProduct
 } = require("../controllers/productController");
 
-// Public routes
-router.get("/search", searchProducts);
-router.get("/filter", filterProducts);
+// Public routes (search & filtering are handled via query params in GET /)
 router.get("/", getProducts);
 router.get("/:id", getProductById);
 
-// Protected routes (Require Authentication)
-router.post("/", verifyToken, createProduct);       // <-- Added verifyToken
-router.put("/:id", verifyToken, updateProduct);    // <-- Added verifyToken
-router.delete("/:id", verifyToken, deleteProduct); // <-- Added verifyToken
+// Protected routes (Vendor Authentication Required)
+router.post("/", verifyToken, createProduct);
+router.put("/:id", verifyToken, updateProduct);
+router.delete("/:id", verifyToken, deleteProduct);
 
 module.exports = router;

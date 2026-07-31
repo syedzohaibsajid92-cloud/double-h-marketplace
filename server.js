@@ -12,6 +12,8 @@ const analyticsRoutes = require('./src/routes/analyticsRoutes');
 app.use('/api/analytics', analyticsRoutes);
 
 
+
+
 const PORT = process.env.PORT || 3000;
 
 pool.connect()

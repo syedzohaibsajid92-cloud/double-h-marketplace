@@ -161,13 +161,17 @@ const getOrderById = async (req, res) => {
     }
 };
 
-// 4. CANCEL ORDER (Only if order belongs to user and is 'pending')
+// 4. CANCEL ORDER (With Inventory Restocking)
 const cancelOrder = async (req, res) => {
+    const client = await pool.connect();
     try {
         const { id } = req.params;
         const user_id = req.user.id;
 
-        const result = await pool.query(
+        await client.query("BEGIN");
+
+        // Cancel order only if pending
+        const orderResult = await client.query(
             `UPDATE orders
              SET status = 'Cancelled'
              WHERE id = $1 AND user_id = $2 AND status = 'pending'
@@ -175,20 +179,39 @@ const cancelOrder = async (req, res) => {
             [id, user_id]
         );
 
-        if (result.rows.length === 0) {
+        if (orderResult.rows.length === 0) {
+            await client.query("ROLLBACK");
             return res.status(400).json({
                 message: "Order not found, already processed, or permission denied."
             });
         }
 
+        // Fetch order items to restore stock
+        const itemsResult = await client.query(
+            "SELECT product_id, quantity FROM order_items WHERE order_id = $1",
+            [id]
+        );
+
+        for (const item of itemsResult.rows) {
+            await client.query(
+                "UPDATE products SET stock = stock + $1 WHERE id = $2",
+                [item.quantity, item.product_id]
+            );
+        }
+
+        await client.query("COMMIT");
+
         res.status(200).json({
-            message: "Order cancelled successfully",
-            order: result.rows[0]
+            message: "Order cancelled and stock restored successfully",
+            order: orderResult.rows[0]
         });
 
     } catch (error) {
+        await client.query("ROLLBACK");
         console.error(error);
         res.status(500).json({ message: "Server Error" });
+    } finally {
+        client.release();
     }
 };
 
@@ -203,10 +226,128 @@ const getAllOrders = async (req, res) => {
     }
 };
 
+// 6. GENERATE INVOICE DATA
+const getInvoice = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user_id = req.user.id;
+
+        // Fetch order details with user & address info
+        const orderResult = await pool.query(
+            `SELECT 
+                o.id AS invoice_number,
+                o.created_at AS invoice_date,
+                o.total_amount,
+                o.payment_method,
+                o.status,
+                u.email AS customer_email,
+                a.full_name AS recipient_name,
+                a.phone,
+                a.address_line1,
+                a.city,
+                a.country
+             FROM orders o
+             JOIN users u ON o.user_id = u.id
+             LEFT JOIN addresses a ON o.address_id = a.id
+             WHERE o.id = $1 AND o.user_id = $2`,
+            [id, user_id]
+        );
+
+        if (orderResult.rows.length === 0) {
+            return res.status(404).json({ message: "Invoice not found or unauthorized access." });
+        }
+
+        // Fetch line items
+        const itemsResult = await pool.query(
+            `SELECT 
+                oi.product_id,
+                p.name AS item_name,
+                oi.quantity,
+                oi.price AS unit_price,
+                (oi.quantity * oi.price) AS subtotal
+             FROM order_items oi
+             JOIN products p ON oi.product_id = p.id
+             WHERE oi.order_id = $1`,
+            [id]
+        );
+
+        const order = orderResult.rows[0];
+        const items = itemsResult.rows;
+
+        // Structure clean invoice data
+        res.status(200).json({
+            success: true,
+            invoice: {
+                company: "Double-H Hardware Marketplace",
+                invoice_no: `INV-${String(order.invoice_number).padStart(6, '0')}`,
+                date: order.invoice_date,
+                customer: {
+                    email: order.customer_email
+                },
+                shipping_address: {
+                    recipient: order.recipient_name || "N/A",
+                    phone: order.phone || "N/A",
+                    address: order.address_line1 || "N/A",
+                    city: order.city || "N/A",
+                    country: order.country || "N/A"
+                },
+                payment_method: order.payment_method,
+                status: order.status,
+                items: items,
+                total_amount: order.total_amount
+            }
+        });
+
+    } catch (error) {
+        console.error("Invoice Error:", error);
+        res.status(500).json({ message: "Server Error generating invoice" });
+    }
+};
+
+// 7. UPDATE DELIVERY STATUS (Admin Endpoint)
+const updateOrderStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+
+        if (!status || !validStatuses.includes(status.toLowerCase())) {
+            return res.status(400).json({ 
+                message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+            });
+        }
+
+        const result = await pool.query(
+            `UPDATE orders 
+             SET status = $1 
+             WHERE id = $2 
+             RETURNING *`,
+            [status.toLowerCase(), id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "Order not found." });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Order status updated to '${status}' successfully`,
+            order: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error("Status Update Error:", error);
+        res.status(500).json({ message: "Server Error updating status" });
+    }
+};
+
 module.exports = {
     placeOrder,
     getUserOrders,
     getOrderById,
     cancelOrder,
-    getAllOrders
+    getAllOrders,
+    getInvoice,
+    updateOrderStatus
 };

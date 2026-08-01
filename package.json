@@ -23,6 +23,7 @@
     "multer": "^2.2.0",
     "pdfkit": "^0.19.1",
     "pg": "^8.22.0",
+    "stripe": "^22.4.0",
     "validator": "^13.15.35"
   },
   "devDependencies": {

@@ -2,17 +2,20 @@ require("dotenv").config();
 
 const app = require("./src/app");
 const pool = require("./src/config/db");
+
+// Import Routes
 const salesRoutes = require('./src/routes/salesRoutes');
-app.use('/api/sales', salesRoutes);
 const revenueRoutes = require('./src/routes/revenueRoutes');
-app.use('/api/revenue', revenueRoutes);
 const payoutRoutes = require('./src/routes/payoutRoutes');
-app.use('/api/payouts', payoutRoutes);
 const analyticsRoutes = require('./src/routes/analyticsRoutes');
+const paymentRoutes = require('./src/routes/paymentRoutes'); // 👈 Added payment routes import
+
+// Mount Routes
+app.use('/api/sales', salesRoutes);
+app.use('/api/revenue', revenueRoutes);
+app.use('/api/payouts', payoutRoutes);
 app.use('/api/analytics', analyticsRoutes);
-
-
-
+app.use('/api/payments', paymentRoutes); // 👈 Mounted payment routes
 
 const PORT = process.env.PORT || 3000;
 

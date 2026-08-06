@@ -14,6 +14,17 @@ import {
 import { formatPrice } from "../data/products";
 import Stars from "./Stars";
 
+// Preset image mapping for category cards
+const CATEGORY_IMAGES = {
+  "Power Tools": "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=500&q=80",
+  "Hand Tools": "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=500&q=80",
+  Fasteners: "https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=500&q=80",
+  "Safety Gear": "https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=500&q=80",
+  Machinery: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&q=80",
+  Plumbing: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=500&q=80",
+  "Drill Machine": "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&q=80",
+};
+
 const CATEGORY_ICONS = {
   "Power Tools": Zap,
   "Hand Tools": Hammer,
@@ -39,6 +50,7 @@ export default function HomePage({
   onSupportClick,
 }) {
   const categoryNames = categories.map((c) => c.name);
+
   return (
     <div className="page">
       <section className="hero">
@@ -78,19 +90,42 @@ export default function HomePage({
         })}
       </section>
 
+      {/* Categories Section */}
       <section>
         <h2 className="section-title">Shop by Category</h2>
         <div className="category-grid">
           {categoryNames.map((cat) => {
             const Icon = CATEGORY_ICONS[cat] || Wrench;
+            const imageUrl = CATEGORY_IMAGES[cat];
+
             return (
               <button
                 key={cat}
                 className="category-card"
                 onClick={() => onCategoryClick(cat)}
+                style={{ overflow: "hidden" }}
               >
-                <span className="thumb category-thumb">
-                  <Icon size={28} />
+                <span 
+                  className="thumb category-thumb"
+                  style={{ 
+                    width: "100%", 
+                    height: "110px", 
+                    overflow: "hidden", 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center",
+                    borderRadius: "8px 8px 0 0" 
+                  }}
+                >
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={cat}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <Icon size={28} />
+                  )}
                 </span>
                 <span>{cat}</span>
               </button>
@@ -99,24 +134,49 @@ export default function HomePage({
         </div>
       </section>
 
+      {/* Featured Products Section */}
       <section>
         <h2 className="section-title">Featured Products</h2>
         {products.length === 0 && <p className="empty-state">No products available yet.</p>}
         <div className="product-grid">
-          {products.slice(0, 8).map((p) => (
-            <button
-              key={p.id}
-              className="product-card"
-              onClick={() => onProductClick(p.id)}
-            >
-              <span className="thumb">
-                <Wrench size={26} className="thumb-icon" />
-              </span>
-              <span className="product-name">{p.name}</span>
-              <Stars rating={p.rating} />
-              <span className="product-price">{formatPrice(p.price)}</span>
-            </button>
-          ))}
+          {products.slice(0, 8).map((p) => {
+            const imgSource = p.image || p.image_url;
+
+            return (
+              <button
+                key={p.id}
+                className="product-card"
+                onClick={() => onProductClick(p.id)}
+                style={{ overflow: "hidden" }}
+              >
+                <span 
+                  className="thumb"
+                  style={{ 
+                    width: "100%", 
+                    height: "160px", 
+                    overflow: "hidden", 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center",
+                    borderRadius: "8px 8px 0 0" 
+                  }}
+                >
+                  {imgSource ? (
+                    <img
+                      src={imgSource}
+                      alt={p.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <Wrench size={26} className="thumb-icon" />
+                  )}
+                </span>
+                <span className="product-name">{p.name}</span>
+                <Stars rating={p.rating} />
+                <span className="product-price">{formatPrice(p.price)}</span>
+              </button>
+            );
+          })}
         </div>
       </section>
     </div>

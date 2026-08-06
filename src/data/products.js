@@ -31,6 +31,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-IMP-13-BLK",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&q=80",
     reviews: [
       { stars: 5, text: "Excellent build quality, fast delivery to Islamabad." },
       { stars: 4, text: "Good torque, works great for home projects." },
@@ -51,6 +52,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-GRD-04",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?w=500&q=80",
     reviews: [
       { stars: 4, text: "Lightweight and easy to handle." },
       { stars: 4, text: "Battery life could be better but does the job." },
@@ -71,6 +73,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-HMR-16-BLK",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=500&q=80",
     reviews: [
       { stars: 5, text: "Solid grip, well balanced." },
       { stars: 5, text: "Great value for the price." },
@@ -91,6 +94,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-WRN-03-GRY",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1616401784845-180882ba9ba8?w=500&q=80",
     reviews: [
       { stars: 4, text: "Sturdy and precise fit." },
       { stars: 5, text: "Exactly what I needed for the workshop." },
@@ -111,6 +115,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-BLT-100",
     inStock: false,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=500&q=80",
     reviews: [
       { stars: 4, text: "Good variety of sizes in one box." },
       { stars: 4, text: "Handy for quick repairs." },
@@ -131,6 +136,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-SFT-GOG-BLK",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500&q=80",
     reviews: [
       { stars: 5, text: "Comfortable fit, no fogging even after hours." },
       { stars: 4, text: "Good seal around the eyes." },
@@ -151,6 +157,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-SFT-GLV-GRY",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=500&q=80",
     reviews: [
       { stars: 4, text: "Tough and breathable." },
       { stars: 4, text: "Fits true to size." },
@@ -171,6 +178,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-MCH-BGR-BLK",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=500&q=80",
     reviews: [
       { stars: 4, text: "Powerful motor, runs smoothly." },
       { stars: 3, text: "A bit noisy but performs well." },
@@ -191,6 +199,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-MCH-CMP-YLW",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&q=80",
     reviews: [
       { stars: 5, text: "Reliable pressure, great for the garage." },
       { stars: 4, text: "Slightly heavy but built to last." },
@@ -211,6 +220,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-PLM-CUT-BLK",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=500&q=80",
     reviews: [
       { stars: 4, text: "Clean cuts every time." },
       { stars: 4, text: "Compact and easy to store." },
@@ -231,6 +241,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-PLM-TAP-GRY",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=500&q=80",
     reviews: [
       { stars: 5, text: "No leaks after a month of use." },
       { stars: 4, text: "Good finish and weight." },
@@ -251,6 +262,7 @@ export const SEED_PRODUCTS = [
     sku: "DH-FST-SCR-BLK",
     inStock: true,
     variants: VARIANT_COLORS,
+    image: "https://images.unsplash.com/photo-1508873696983-2df515122519?w=500&q=80",
     reviews: [
       { stars: 4, text: "Sharp threads, drive in easily." },
       { stars: 3, text: "Wish the pack had more pieces." },

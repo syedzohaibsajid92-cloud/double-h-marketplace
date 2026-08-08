@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-const authMiddleware = require("../middleware/authMiddleware");
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require("../middleware/authMiddleware");
 
 const {
     createAddress,
@@ -13,21 +14,21 @@ const {
 } = require("../controllers/addressController");
 
 // Add Address
-router.post("/", authMiddleware, createAddress);
+router.post("/", verifyToken, createAddress);
 
 // Get All Addresses
-router.get("/", authMiddleware, getAddresses);
+router.get("/", verifyToken, getAddresses);
 
 // Get Address By ID
-router.get("/:id", authMiddleware, getAddressById);
+router.get("/:id", verifyToken, getAddressById);
 
 // Update Address
-router.put("/:id", authMiddleware, updateAddress);
+router.put("/:id", verifyToken, updateAddress);
 
 // Delete Address
-router.delete("/:id", authMiddleware, deleteAddress);
+router.delete("/:id", verifyToken, deleteAddress);
 
 // Set Default Address
-router.patch("/:id/default", authMiddleware, setDefaultAddress);
+router.patch("/:id/default", verifyToken, setDefaultAddress);
 
 module.exports = router;

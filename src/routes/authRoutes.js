@@ -1,9 +1,13 @@
 const express = require("express");
-
 const router = express.Router();
 
 const authController = require("../controllers/authController");
 const { googleLogin } = require("../controllers/googleAuthController");
+const { verifyToken } = require("../middleware/authMiddleware");
+
+// ==========================================
+// PUBLIC AUTH ROUTES
+// ==========================================
 
 // Register
 router.post("/register", authController.register);
@@ -34,5 +38,15 @@ router.post("/verify-email", authController.verifyEmail);
 
 // Resend Verification Email
 router.post("/resend-verification", authController.resendVerificationEmail);
+
+
+// ==========================================
+// PROTECTED AUTH ROUTES (Token Required)
+// ==========================================
+
+// Get Current User Profile (Verifies JWT session)
+router.get("/me", verifyToken, authController.getMe || ((req, res) => {
+  res.status(200).json({ success: true, user: req.user });
+}));
 
 module.exports = router;

@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const verifyToken = require("../middleware/authMiddleware");
+
+// Destructure role-based middleware from authMiddleware
+const { verifyVendor, verifyAdmin } = require("../middleware/authMiddleware");
+
 const {
     getProducts,
     getProductById,
@@ -9,13 +12,17 @@ const {
     deleteProduct
 } = require("../controllers/productController");
 
-// Public routes (search & filtering are handled via query params in GET /)
+// ==========================================
+// PUBLIC ROUTES
+// ==========================================
 router.get("/", getProducts);
 router.get("/:id", getProductById);
 
-// Protected routes (Vendor Authentication Required)
-router.post("/", verifyToken, createProduct);
-router.put("/:id", verifyToken, updateProduct);
-router.delete("/:id", verifyToken, deleteProduct);
+// ==========================================
+// PROTECTED ROUTES (Vendor / Admin Privileges Required)
+// ==========================================
+router.post("/", verifyVendor, createProduct);
+router.put("/:id", verifyVendor, updateProduct);
+router.delete("/:id", verifyAdmin, deleteProduct);
 
 module.exports = router;

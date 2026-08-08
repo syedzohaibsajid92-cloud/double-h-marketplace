@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const verifyToken = require("../middleware/authMiddleware");
+
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require("../middleware/authMiddleware");
+
 const { getCheckoutSummary } = require("../controllers/checkoutController");
 
 // Checkout summary route

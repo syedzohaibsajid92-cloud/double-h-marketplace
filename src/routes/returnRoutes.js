@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { requestReturn } = require('../controllers/returnController');
-const authMiddleware = require('../middleware/authMiddleware'); // Update path if your auth middleware is located elsewhere
+
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // POST /api/returns
-router.post('/', authMiddleware, requestReturn);
+router.post('/', verifyToken, requestReturn);
 
 module.exports = router;

@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const verifyToken = require("../middleware/authMiddleware");
+
+// Destructure verifyToken from the exports object
+const { verifyToken } = require("../middleware/authMiddleware");
 
 const {
     addToCart,
@@ -11,7 +13,7 @@ const {
 
 // Secure routes using verifyToken middleware
 router.post("/", verifyToken, addToCart);
-router.get("/", verifyToken, getCart); // No longer needs /:user_id parameter!
+router.get("/", verifyToken, getCart);
 router.put("/:id", verifyToken, updateCartQuantity);
 router.delete("/:id", verifyToken, removeFromCart);
 

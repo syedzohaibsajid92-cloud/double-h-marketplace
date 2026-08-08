@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const authMiddleware = require("../middleware/authMiddleware");
+
+// Destructure middleware functions
+const { verifyToken, verifyAdmin } = require("../middleware/authMiddleware");
 
 const {
     placeOrder,
@@ -12,18 +14,22 @@ const {
     updateOrderStatus
 } = require("../controllers/orderController");
 
-// Protect ALL order routes with authMiddleware
-router.use(authMiddleware);
+// Protect ALL order routes with authentication (requires valid login token)
+router.use(verifyToken);
 
-// Customer endpoints
+// ==========================================
+// CUSTOMER ENDPOINTS
+// ==========================================
 router.post("/", placeOrder);
 router.get("/user", getUserOrders);          // GET /api/orders/user
 router.get("/details/:id", getOrderById);    // GET /api/orders/details/:id
 router.get("/invoice/:id", getInvoice);      // GET /api/orders/invoice/:id
 router.put("/cancel/:id", cancelOrder);      // PUT /api/orders/cancel/:id
 
-// Admin endpoints (Will attach admin middleware here later)
-router.get("/admin/all", getAllOrders);      // GET /api/orders/admin/all
-router.put("/status/:id", updateOrderStatus); // PUT /api/orders/status/:id
+// ==========================================
+// ADMIN ENDPOINTS (Protected with Admin Privilege)
+// ==========================================
+router.get("/admin/all", verifyAdmin, getAllOrders);       // GET /api/orders/admin/all
+router.put("/status/:id", verifyAdmin, updateOrderStatus); // PUT /api/orders/status/:id
 
 module.exports = router;

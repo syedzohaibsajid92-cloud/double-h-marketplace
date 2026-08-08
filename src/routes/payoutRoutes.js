@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { requestPayout, getPayoutHistory } = require('../controllers/payoutController');
-const protect = require('../middleware/authMiddleware');
+
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // POST /api/payouts/request - Request payout
-router.post('/request', protect, requestPayout);
+router.post('/request', verifyToken, requestPayout);
 
 // GET /api/payouts/history - View past payouts
-router.get('/history', protect, getPayoutHistory);
+router.get('/history', verifyToken, getPayoutHistory);
 
 module.exports = router;

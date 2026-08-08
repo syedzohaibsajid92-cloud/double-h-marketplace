@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const authMiddleware = require("../middleware/authMiddleware");
+
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require("../middleware/authMiddleware");
 
 const {
     getInvoiceData,
@@ -8,7 +10,7 @@ const {
 } = require("../controllers/invoiceController");
 
 // Require authentication for invoice access
-router.use(authMiddleware);
+router.use(verifyToken);
 
 // GET /api/invoices/:orderId (Returns JSON invoice data)
 router.get("/:orderId", getInvoiceData);

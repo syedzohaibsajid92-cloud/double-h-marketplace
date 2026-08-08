@@ -1,29 +1,22 @@
 const express = require("express");
 const router = express.Router();
 
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require("../middleware/authMiddleware");
+
 const {
-    addReview,
-    getAllReviews,
     getReviewsByProduct,
+    addReview,
     updateReview,
     deleteReview
 } = require("../controllers/reviewController");
 
-const authMiddleware = require("../middleware/authMiddleware");
-
-// Add review
-router.post("/", authMiddleware, addReview);
-
-// Get all reviews (Admin)
-router.get("/", getAllReviews);
-
-// Get reviews for a product
+// Public route to view reviews for a product
 router.get("/product/:productId", getReviewsByProduct);
 
-// Update review
-router.put("/:id", authMiddleware, updateReview);
-
-// Delete review
-router.delete("/:id", authMiddleware, deleteReview);
+// Protected routes (Requires valid login token)
+router.post("/", verifyToken, addReview);
+router.put("/:id", verifyToken, updateReview);
+router.delete("/:id", verifyToken, deleteReview);
 
 module.exports = router;

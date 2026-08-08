@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-const authMiddleware = require("../middleware/authMiddleware");
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require("../middleware/authMiddleware");
 
 const {
     getProfile,
@@ -14,12 +15,12 @@ const {
 // ==============================
 
 // Get logged-in user's profile
-router.get("/", authMiddleware, getProfile);
+router.get("/", verifyToken, getProfile);
 
 // Update logged-in user's profile
-router.put("/", authMiddleware, updateProfile);
+router.put("/", verifyToken, updateProfile);
 
 // Change password
-router.put("/change-password", authMiddleware, changePassword);
+router.put("/change-password", verifyToken, changePassword);
 
 module.exports = router;

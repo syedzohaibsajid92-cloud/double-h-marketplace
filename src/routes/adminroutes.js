@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-
-const authenticate = require("../middleware/authMiddleware"); // matches your existing file
+// Destructure verifyToken (or verifyAdmin) from authMiddleware
+const { verifyToken } = require("../middleware/authMiddleware");
 const requireAdmin = require("../middleware/requireAdmin");
 
 const vendorCtrl = require("../controllers/adminVendorController");
@@ -12,7 +12,7 @@ const couponCtrl = require("../controllers/coupencontroller");
 const cmsCtrl = require("../controllers/CMSController");
 
 // All admin routes require: valid JWT + role === 'admin'
-router.use(authenticate, requireAdmin);
+router.use(verifyToken, requireAdmin);
 
 // ---- Vendor Approval ----
 router.get("/vendors/pending", vendorCtrl.getPendingVendors);

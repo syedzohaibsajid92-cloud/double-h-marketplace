@@ -1,6 +1,8 @@
 const express = require("express");
-
 const router = express.Router();
+
+// Destructure role-based middleware
+const { verifyToken, verifyAdmin } = require("../middleware/authMiddleware");
 
 const {
     getUsers,
@@ -11,27 +13,25 @@ const {
     getAllUsers
 } = require("../controllers/userController");
 
-// Get all users
-router.get("/", getUsers);
-
-// Admin - Get all users
-router.get("/all", getAllUsers);
-
-// Get user by id
-router.get("/:id", getUserById);
-
-// Update user
-router.put("/:id", updateUser);
-
-// Delete user
-router.delete("/:id", deleteUser);
-
-// Create user
+// ==========================================
+// PUBLIC / GENERAL ROUTES
+// ==========================================
+// Create user (Public registration / onboarding)
 router.post("/", createUser);
 
-module.exports = router;
+// ==========================================
+// PROTECTED USER ROUTES (Authentication Required)
+// ==========================================
+// Get profile by ID & Update profile
+router.get("/:id", verifyToken, getUserById);
+router.put("/:id", verifyToken, updateUser);
 
-// Create user
-router.post("/", createUser);
+// ==========================================
+// PROTECTED ADMIN ROUTES (Admin Privileges Required)
+// ==========================================
+// Admin endpoints to view all users and delete user accounts
+router.get("/", verifyAdmin, getUsers);
+router.get("/all", verifyAdmin, getAllUsers);
+router.delete("/:id", verifyAdmin, deleteUser);
 
 module.exports = router;

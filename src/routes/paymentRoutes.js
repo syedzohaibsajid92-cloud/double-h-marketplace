@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require("../middleware/authMiddleware");
+
 const {
     createStripePaymentIntent,
     confirmStripePayment,
@@ -8,14 +11,10 @@ const {
     getPaymentHistory
 } = require("../controllers/paymentController");
 
-const authMiddleware = require("../middleware/authMiddleware");
-
-// Stripe Routes
-router.post("/stripe/create-intent", authMiddleware, createStripePaymentIntent);
-router.post("/stripe/confirm", authMiddleware, confirmStripePayment);
-
-// Standard/Manual Payment Routes
-router.post("/pay", authMiddleware, makePayment);
-router.get("/history", authMiddleware, getPaymentHistory);
+// Protect payment endpoints with JWT authentication
+router.post("/create-intent", verifyToken, createStripePaymentIntent);
+router.post("/confirm", verifyToken, confirmStripePayment);
+router.post("/process", verifyToken, makePayment);
+router.get("/history", verifyToken, getPaymentHistory);
 
 module.exports = router;

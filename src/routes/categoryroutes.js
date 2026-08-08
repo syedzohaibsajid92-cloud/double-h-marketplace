@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-const authMiddleware = require("../middleware/authMiddleware");
-const authorizeRoles = require("../middleware/roleMiddleware");
+// Destructure the required middleware functions
+const { verifyToken, verifyAdmin } = require("../middleware/authMiddleware");
 
 const {
     getCategories,
@@ -12,33 +12,13 @@ const {
     deleteCategory
 } = require("../controllers/categoryController");
 
-// Anyone with a valid JWT can view categories
-router.get("/", authMiddleware, getCategories);
+// Public/Authenticated category fetching
+router.get("/", getCategories);
+router.get("/:id", getCategoryById);
 
-router.get("/:id", authMiddleware, getCategoryById);
-
-// Only Admin can create categories
-router.post(
-    "/",
-    authMiddleware,
-    authorizeRoles("Admin"),
-    createCategory
-);
-
-// Only Admin can update categories
-router.put(
-    "/:id",
-    authMiddleware,
-    authorizeRoles("Admin"),
-    updateCategory
-);
-
-// Only Admin can delete categories
-router.delete(
-    "/:id",
-    authMiddleware,
-    authorizeRoles("Admin"),
-    deleteCategory
-);
+// Admin-only endpoints
+router.post("/", verifyAdmin, createCategory);
+router.put("/:id", verifyAdmin, updateCategory);
+router.delete("/:id", verifyAdmin, deleteCategory);
 
 module.exports = router;

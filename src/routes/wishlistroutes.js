@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const authMiddleware = require("../middleware/authMiddleware");
+
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require("../middleware/authMiddleware");
 
 const {
     addToWishlist,
@@ -8,10 +10,8 @@ const {
     removeFromWishlist
 } = require("../controllers/wishlistController");
 
-router.post("/", authMiddleware, addToWishlist);
-
-router.get("/", authMiddleware, getWishlist);
-
-router.delete("/:id", authMiddleware, removeFromWishlist);
+router.post("/", verifyToken, addToWishlist);
+router.get("/", verifyToken, getWishlist);
+router.delete("/:id", verifyToken, removeFromWishlist);
 
 module.exports = router;

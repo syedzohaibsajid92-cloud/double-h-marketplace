@@ -248,16 +248,26 @@ function Section({ title, children }) {
 }
 
 export default function AdminApiTester() {
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzg2MDM1NTc0LCJleHAiOjE3ODYxMjE5NzR9.R1zJ8TJpB4qMJSCqKoPG0Pndwrc-Rl7oBt7EzdtAj1A");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginResult, setLoginResult] = useState(null);
   const [loggingIn, setLoggingIn] = useState(false);
 
   const exec = async (url, method, bodyStr) => {
-    const headers = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const activeToken = token.trim();
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (activeToken) {
+      headers["Authorization"] = activeToken.startsWith("Bearer ")
+        ? activeToken
+        : `Bearer ${activeToken}`;
+    }
+
     const opts = { method, headers };
+
     if (bodyStr && bodyStr.trim()) {
       try {
         opts.body = JSON.stringify(JSON.parse(bodyStr));
@@ -265,14 +275,19 @@ export default function AdminApiTester() {
         return { status: null, error: "Invalid JSON in request body" };
       }
     }
-    const res = await fetch(url, opts);
-    let data;
+
     try {
-      data = await res.json();
-    } catch (e) {
-      data = { note: "No JSON body returned" };
+      const res = await fetch(url, opts);
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = { note: "No JSON body returned" };
+      }
+      return { status: res.status, data };
+    } catch (err) {
+      return { status: null, error: err.message };
     }
-    return { status: res.status, data };
   };
 
   const doLogin = async () => {

@@ -15,7 +15,8 @@ const {
     getMyVerificationStatus
 } = require("../controllers/vendorVerificationController");
 
-const verifyToken = require("../middleware/authMiddleware");
+// Destructure verifyToken from authMiddleware
+const { verifyToken } = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
 
 // =====================================
@@ -47,6 +48,12 @@ router.get(
     authorizeRoles("Customer", "Vendor"),
     getMyVerificationStatus
 );
+
+// =====================================
+// Inventory Routes (Placed before /:id)
+// =====================================
+router.get("/inventory", verifyToken, getVendorInventory);
+router.patch("/inventory/:productId/stock", verifyToken, updateProductStock);
 
 // =====================================
 // Admin - Get All Vendors
@@ -87,6 +94,5 @@ router.delete(
     authorizeRoles("Admin"),
     deleteVendor
 );
-router.get("/inventory", verifyToken, getVendorInventory);
-router.patch("/inventory/:productId/stock", verifyToken, updateProductStock);
+
 module.exports = router;

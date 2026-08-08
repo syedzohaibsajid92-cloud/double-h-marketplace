@@ -30,28 +30,42 @@ async function getPageBySlug(req, res) {
   }
 }
 
-// PUT /api/admin/cms/:slug  (creates the page if it doesn't exist yet — upsert)
+// PUT /api/admin/cms/:slug (creates the page if it doesn't exist yet)
 async function upsertPage(req, res) {
   try {
     const { slug } = req.params;
     const { title, content } = req.body;
-    const adminId = req.user.id;
+    const adminId = req.user ? req.user.id : null;
 
     if (!title) {
       return res.status(400).json({ success: false, message: "Title is required" });
     }
 
-    const result = await pool.query(
-      `INSERT INTO cms_pages (slug, title, content, updated_by)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (slug) DO UPDATE
-         SET title = EXCLUDED.title,
-             content = EXCLUDED.content,
-             updated_by = EXCLUDED.updated_by,
+    // 1. Check if the page exists
+    const existing = await pool.query(`SELECT id FROM cms_pages WHERE slug = $1`, [slug]);
+
+    let result;
+    if (existing.rows.length > 0) {
+      // 2. Update existing page
+      result = await pool.query(
+        `UPDATE cms_pages
+         SET title = $1,
+             content = $2,
+             updated_by = $3,
              updated_at = NOW()
-       RETURNING *`,
-      [slug, title, content || "", adminId]
-    );
+         WHERE slug = $4
+         RETURNING *`,
+        [title, content || "", adminId, slug]
+      );
+    } else {
+      // 3. Create new page
+      result = await pool.query(
+        `INSERT INTO cms_pages (slug, title, content, updated_by)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [slug, title, content || "", adminId]
+      );
+    }
 
     res.json({ success: true, page: result.rows[0] });
   } catch (err) {

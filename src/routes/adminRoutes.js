@@ -6,7 +6,7 @@ const { verifyToken } = require("../middleware/authMiddleware");
 const requireAdmin = require("../middleware/requireAdmin");
 
 const vendorCtrl = require("../controllers/adminVendorController");
-const productCtrl = require("../controllers/adminproductController");
+const productCtrl = require("../controllers/adminProductController");
 const analyticsCtrl = require("../controllers/adminAnalyticsController");
 const couponCtrl = require("../controllers/couponController");
 const cmsCtrl = require("../controllers/CMSController");

@@ -10,6 +10,11 @@ const productCtrl = require("../controllers/adminProductController");
 const analyticsCtrl = require("../controllers/adminAnalyticsController");
 const couponCtrl = require("../controllers/couponController");
 const cmsCtrl = require("../controllers/CMSController");
+const {
+    getPendingVerifications,
+    verifyVendor,
+    rejectVendorVerification
+} = require("../controllers/adminVendorVerificationController");
 
 // All admin routes require: valid JWT + role === 'admin'
 router.use(verifyToken, requireAdmin);
@@ -18,6 +23,11 @@ router.use(verifyToken, requireAdmin);
 router.get("/vendors/pending", vendorCtrl.getPendingVendors);
 router.patch("/vendors/:id/approve", vendorCtrl.approveVendor);
 router.patch("/vendors/:id/reject", vendorCtrl.rejectVendor);
+
+// ---- Vendor Verification (CNIC / documents) ----
+router.get("/vendors/verification/pending", getPendingVerifications);
+router.patch("/vendors/verification/:id/verify", verifyVendor);
+router.patch("/vendors/verification/:id/reject", rejectVendorVerification);
 
 // ---- Product Approval ----
 router.get("/products/pending", productCtrl.getPendingProducts);

@@ -122,6 +122,36 @@ const createVendor = async (req, res) => {
     }
 };
 
+// Get My Own Vendor Record (for the logged-in user)
+const getMyVendor = async (req, res) => {
+    try {
+
+        const userId = req.user.id;
+
+        const result = await pool.query(
+            "SELECT * FROM vendors WHERE user_id = $1",
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                message: "No vendor account found for this user."
+            });
+        }
+
+        res.status(200).json(result.rows[0]);
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            message: "Server Error"
+        });
+
+    }
+};
+
 // Get All Vendors
 const getVendors = async (req, res) => {
     try {
@@ -265,6 +295,7 @@ const deleteVendor = async (req, res) => {
 };
 module.exports = {
     createVendor,
+    getMyVendor,
     getVendors,
     getVendorById,
     updateVendor,

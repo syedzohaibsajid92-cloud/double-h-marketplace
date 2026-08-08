@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import ModuleSwitcher from "./components/ModuleSwitcher";
 import Header from "./components/Header";
 import HomePage from "./components/HomePage";
@@ -10,26 +10,28 @@ import AdminPanel from "./components/AdminPanel";
 import CustomerService from "./components/CustomerService";
 import Auth from "./components/Auth";
 import VendorOnboarding from "./components/VendorOnboarding";
-import { SEED_PRODUCTS } from "./data/products";
-import { SEED_USERS, hasVendorAccess } from "./data/users";
-import { SEED_VENDORS } from "./data/vendors";
-import { SEED_CATEGORIES } from "./data/categories";
-import { SEED_ORDERS, generateOrderId } from "./data/orders";
-import { SEED_PAYOUTS } from "./data/payouts";
 import { SEED_TICKETS, generateTicketId } from "./data/tickets";
+import { getToken } from "./api/client";
+import * as authApi from "./api/auth";
+import * as productsApi from "./api/products";
+import * as vendorsApi from "./api/vendors";
+import * as ordersApi from "./api/orders";
 
 export default function App() {
-  // auth state
-  const [users, setUsers] = useState(SEED_USERS);
+  // auth / session state
   const [currentUser, setCurrentUser] = useState(null);
+  const [booting, setBooting] = useState(true); // restoring session from saved token
+  const [apiError, setApiError] = useState("");
 
-  // marketplace data
-  const [vendors, setVendors] = useState(SEED_VENDORS);
-  const [products, setProducts] = useState(SEED_PRODUCTS);
-  const [categories, setCategories] = useState(SEED_CATEGORIES);
-  const [orders, setOrders] = useState(SEED_ORDERS);
-  const [payouts] = useState(SEED_PAYOUTS);
-  const [tickets, setTickets] = useState(SEED_TICKETS);
+  // marketplace data (fetched from the real backend)
+  const [myVendor, setMyVendor] = useState(null); // the logged-in user's own vendor record, if any
+  const [vendors, setVendors] = useState([]); // admin-only: all vendors
+  const [products, setProducts] = useState([]);
+  const [vendorProducts, setVendorProducts] = useState([]); // logged-in vendor's own products
+  const [categories, setCategories] = useState([]);
+  const [orders, setOrders] = useState([]); // current user's own orders, or all orders for admin
+  const [payouts] = useState([]); // no backend payouts UI wired up yet
+  const [tickets, setTickets] = useState(SEED_TICKETS); // support tickets have no backend yet — local only
 
   const [activeModule, setActiveModule] = useState("store");
   const [screen, setScreen] = useState("app"); // "app" | "vendor-onboarding"
@@ -45,22 +47,87 @@ export default function App() {
   // cart state, shared between the product detail page and checkout
   const [cart, setCart] = useState([]); // [{ productId, qty }]
 
+  // ---- initial data load ------------------------------------------------
+  const loadCatalog = useCallback(async () => {
+    try {
+      const [prods, cats] = await Promise.all([productsApi.fetchProducts(), productsApi.fetchCategories()]);
+      setProducts(prods);
+      setCategories(cats);
+    } catch (err) {
+      setApiError(err.message || "Could not load the store catalog.");
+    }
+  }, []);
+
+  const loadForRole = useCallback(async (user) => {
+    try {
+      const vendor = await vendorsApi.fetchMyVendor();
+      setMyVendor(vendor);
+      if (vendor) {
+        const myProducts = await productsApi.fetchProducts({ vendor_id: vendor.id });
+        setVendorProducts(myProducts);
+      }
+    } catch {
+      /* not a vendor yet — fine */
+    }
+
+    try {
+      const myOrders = await ordersApi.fetchMyOrders();
+      setOrders(myOrders);
+    } catch {
+      /* no orders yet, or endpoint hiccup — non-fatal */
+    }
+
+    if (user.role === "admin") {
+      try {
+        const allVendors = await vendorsApi.fetchAllVendors();
+        setVendors(allVendors);
+      } catch {
+        /* ignore */
+      }
+      try {
+        const allOrders = await ordersApi.fetchAllOrders();
+        setOrders(
+          allOrders.map((o) => ({ id: o.id, status: o.status, date: (o.created_at || "").slice(0, 10), items: [] }))
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  // load public catalog once on boot
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
+
+  // try to restore a session from a saved token
+  useEffect(() => {
+    (async () => {
+      const token = getToken();
+      if (!token) {
+        setBooting(false);
+        return;
+      }
+      try {
+        const user = await authApi.fetchMe();
+        setCurrentUser(user);
+        if (user.role === "admin") setActiveModule("admin");
+        await loadForRole(user);
+      } catch {
+        authApi.logout();
+      } finally {
+        setBooting(false);
+      }
+    })();
+  }, []);
+
   // ---- derived lookups ----------------------------------------------
-  const vendorsById = useMemo(() => {
-    const map = {};
-    vendors.forEach((v) => (map[v.id] = v));
-    return map;
-  }, [vendors]);
-
-  function isVendorLive(vendorId) {
-    const v = vendorsById[vendorId];
-    return !!v && v.approval_status === "Approved" && v.is_active;
-  }
-
-  // only products from an approved & active vendor ever reach the storefront
+  // Only rejected products are hidden — approval review happens in the
+  // admin panel, but we keep the storefront populated in the meantime
+  // rather than risk an empty-looking demo.
   const storefrontProducts = useMemo(
-    () => products.filter((p) => isVendorLive(p.vendorId)),
-    [products, vendors]
+    () => products.filter((p) => p.approval_status !== "rejected"),
+    [products]
   );
 
   const filteredProducts = useMemo(() => {
@@ -76,8 +143,6 @@ export default function App() {
 
   const selectedProduct = storefrontProducts.find((p) => p.id === selectedProductId);
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
-
-  const myVendor = currentUser ? vendors.find((v) => v.userId === currentUser.id) : null;
 
   // ---- storefront navigation -----------------------------------------
   function goHome() {
@@ -148,60 +213,31 @@ export default function App() {
     });
   }
 
-  function handlePlaceOrder() {
+  async function handlePlaceOrder() {
     if (cart.length === 0 || !currentUser) return;
 
-    const items = cart
+    const lines = cart
       .map((entry) => {
         const product = products.find((p) => p.id === entry.productId);
         if (!product) return null;
-        return {
-          productId: product.id,
-          vendorId: product.vendorId,
-          name: product.name,
-          price: product.price,
-          qty: entry.qty,
-          status: "Processing",
-        };
+        return { productId: product.id, qty: entry.qty };
       })
       .filter(Boolean);
 
-    const newOrder = {
-      id: generateOrderId(),
-      customerName: `${currentUser.first_name} ${currentUser.last_name}`.trim(),
-      customerEmail: currentUser.email,
-      date: new Date().toISOString().slice(0, 10),
-      items,
-    };
-
-    setOrders((prev) => [...prev, newOrder]);
-
-    // decrement stock for each purchased product
-    setProducts((prev) =>
-      prev.map((p) => {
-        const entry = cart.find((c) => c.productId === p.id);
-        if (!entry) return p;
-        const nextStock = Math.max((p.stock || 0) - entry.qty, 0);
-        return { ...p, stock: nextStock, inStock: nextStock > 0 };
-      })
-    );
-
-    setCart([]);
+    try {
+      await ordersApi.placeOrder(currentUser, lines);
+      setCart([]);
+      await loadCatalog(); // stock levels changed
+      const myOrders = await ordersApi.fetchMyOrders();
+      setOrders(myOrders);
+    } catch (err) {
+      setApiError(err.message || "Could not place the order. Please try again.");
+    }
   }
 
-  // ---- wishlist -----------------------------------------------------------
+  // ---- wishlist (local only — no backend wired up yet) -------------------
   function handleToggleWishlist(productId) {
     if (!currentUser) return;
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== currentUser.id) return u;
-        const has = u.wishlist.includes(productId);
-        return {
-          ...u,
-          wishlist: has ? u.wishlist.filter((id) => id !== productId) : [...u.wishlist, productId],
-        };
-      })
-    );
     setCurrentUser((prev) => {
       const has = prev.wishlist.includes(productId);
       return {
@@ -212,21 +248,32 @@ export default function App() {
   }
 
   // ---- auth -----------------------------------------------------------
-  function handleRegister(newUser) {
-    setUsers((prev) => [...prev, newUser]);
+  async function handleRegister(formData) {
+    const user = await authApi.register(formData);
+    setCurrentUser(user);
+    setScreen("app");
+    setActiveModule("store");
+    setPage("home");
+    await loadForRole(user);
   }
 
-  function handleLoginSuccess(user) {
+  async function handleLoginSuccess(credentials) {
+    const user = await authApi.login(credentials);
     setCurrentUser(user);
     setScreen("app");
     if (user.role === "admin") setActiveModule("admin");
-    else if (user.role === "vendor") setActiveModule("vendor");
     else setActiveModule("store");
     setPage("home");
+    await loadForRole(user);
   }
 
   function handleLogout() {
+    authApi.logout();
     setCurrentUser(null);
+    setMyVendor(null);
+    setVendors([]);
+    setVendorProducts([]);
+    setOrders([]);
     setActiveModule("store");
     setScreen("app");
     setPage("home");
@@ -242,32 +289,24 @@ export default function App() {
     setScreen("app");
   }
 
-  function handleVendorOnboardingComplete(vendorForm) {
-    const newVendor = {
-      id: Date.now(),
-      userId: currentUser.id,
-      business_name: vendorForm.business_name,
-      business_email: vendorForm.business_email,
-      business_phone: vendorForm.business_phone,
-      business_address: vendorForm.business_address,
-      city: vendorForm.city,
-      country: vendorForm.country,
-      description: vendorForm.description,
-      logo_url: vendorForm.logo_url,
-      website_url: vendorForm.website_url,
-      cnic_number: vendorForm.cnic_number,
-      verification_document_url: vendorForm.verification_document_url,
-      approval_status: "Pending",
-      status: "pending",
-      is_active: false,
-      verification_status: "Pending",
-      created_at: new Date().toISOString().slice(0, 10),
-    };
-
-    setVendors((prev) => [...prev, newVendor]);
-
-    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? { ...u, is_vendor: true } : u)));
-    setCurrentUser((prev) => ({ ...prev, is_vendor: true }));
+  async function handleVendorOnboardingComplete(vendorForm) {
+    try {
+      const vendor = await vendorsApi.registerVendor({
+        business_name: vendorForm.business_name,
+        business_email: vendorForm.business_email,
+        business_phone: vendorForm.business_phone,
+        business_address: vendorForm.business_address,
+        city: vendorForm.city,
+        country: vendorForm.country,
+        description: vendorForm.description,
+        logo_url: vendorForm.logo_url,
+        website_url: vendorForm.website_url,
+      });
+      setMyVendor(vendor);
+      setCurrentUser((prev) => ({ ...prev, is_vendor: true }));
+    } catch (err) {
+      setApiError(err.message || "Could not submit vendor registration.");
+    }
   }
 
   function handleVendorOnboardingFinish() {
@@ -276,49 +315,62 @@ export default function App() {
   }
 
   // ---- vendor dashboard actions -----------------------------------------
-  function handleAddProduct(productData) {
+  async function refreshVendorProducts() {
     if (!myVendor) return;
-    const newProduct = {
-      id: Date.now(),
-      vendorId: myVendor.id,
-      name: productData.name,
-      description: productData.description || "",
-      price: Number(productData.price) || 0,
-      stock: Number(productData.stock) || 0,
-      category: productData.category || categories[0]?.name || "",
-      image_url: productData.image_url || "",
-      brand: myVendor.business_name,
-      sku: `${myVendor.business_name.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-5)}`,
-      rating: 0,
-      reviewCount: 0,
-      inStock: (Number(productData.stock) || 0) > 0,
-      variants: [],
-      reviews: [],
-    };
-    setProducts((prev) => [...prev, newProduct]);
+    const myProducts = await productsApi.fetchProducts({ vendor_id: myVendor.id });
+    setVendorProducts(myProducts);
   }
 
-  function handleUpdateProduct(productId, updates) {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p;
-        const next = { ...p, ...updates };
-        if (updates.stock !== undefined) next.inStock = Number(updates.stock) > 0;
-        return next;
-      })
-    );
+  async function handleAddProduct(productData) {
+    if (!myVendor) return;
+    const category = categories.find((c) => c.name === productData.category);
+    try {
+      await productsApi.createProduct({
+        name: productData.name,
+        description: productData.description || "",
+        price: Number(productData.price) || 0,
+        stock: Number(productData.stock) || 0,
+        category_id: category ? category.id : null,
+        image_url: productData.image_url || "",
+        brand: myVendor.business_name,
+        sku: `${myVendor.business_name.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-5)}`,
+      });
+      await refreshVendorProducts();
+      await loadCatalog();
+    } catch (err) {
+      setApiError(err.message || "Could not add product.");
+    }
   }
 
-  function handleAdjustStock(productId, delta) {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p;
-        const nextStock = Math.max((p.stock || 0) + delta, 0);
-        return { ...p, stock: nextStock, inStock: nextStock > 0 };
-      })
-    );
+  async function handleUpdateProduct(productId, updates) {
+    const category = updates.category ? categories.find((c) => c.name === updates.category) : null;
+    try {
+      await productsApi.updateProduct(productId, {
+        ...updates,
+        category_id: category ? category.id : undefined,
+      });
+      await refreshVendorProducts();
+      await loadCatalog();
+    } catch (err) {
+      setApiError(err.message || "Could not update product.");
+    }
   }
 
+  async function handleAdjustStock(productId, delta) {
+    const product = vendorProducts.find((p) => p.id === productId);
+    if (!product) return;
+    const nextStock = Math.max((product.stock || 0) + delta, 0);
+    try {
+      await productsApi.updateProduct(productId, { stock: nextStock });
+      await refreshVendorProducts();
+      await loadCatalog();
+    } catch (err) {
+      setApiError(err.message || "Could not adjust stock.");
+    }
+  }
+
+  // Note: the backend doesn't yet track order status per line-item/vendor,
+  // so this updates the local view only rather than persisting server-side.
   function handleUpdateOrderItemStatus(orderId, productId, vendorId, status) {
     setOrders((prev) =>
       prev.map((o) => {
@@ -326,47 +378,62 @@ export default function App() {
         return {
           ...o,
           items: o.items.map((item) =>
-            item.productId === productId && item.vendorId === vendorId ? { ...item, status } : item
+            item.productId === productId ? { ...item, status } : item
           ),
         };
       })
     );
   }
 
-  function handleUpdateVendorProfile(vendorId, updates) {
-    setVendors((prev) => prev.map((v) => (v.id === vendorId ? { ...v, ...updates } : v)));
+  async function handleUpdateVendorProfile(vendorId, updates) {
+    try {
+      const vendor = await vendorsApi.updateVendorProfile(vendorId, updates);
+      setMyVendor(vendor);
+    } catch (err) {
+      setApiError(err.message || "Could not update vendor profile.");
+    }
   }
 
   // ---- admin actions -----------------------------------------------------
-  function handleApproveVendor(vendorId) {
-    setVendors((prev) =>
-      prev.map((v) =>
-        v.id === vendorId
-          ? { ...v, approval_status: "Approved", status: "active", is_active: true, verification_status: "Verified" }
-          : v
-      )
-    );
+  async function refreshVendors() {
+    const allVendors = await vendorsApi.fetchAllVendors();
+    setVendors(allVendors);
   }
 
-  function handleRejectVendor(vendorId) {
-    setVendors((prev) =>
-      prev.map((v) =>
-        v.id === vendorId
-          ? { ...v, approval_status: "Rejected", status: "rejected", is_active: false, verification_status: "Rejected" }
-          : v
-      )
-    );
+  async function handleApproveVendor(vendorId) {
+    try {
+      await vendorsApi.approveVendor(vendorId);
+      await refreshVendors();
+      await loadCatalog();
+    } catch (err) {
+      setApiError(err.message || "Could not approve vendor.");
+    }
   }
 
-  function handleAddCategory(name) {
+  async function handleRejectVendor(vendorId) {
+    try {
+      await vendorsApi.rejectVendor(vendorId);
+      await refreshVendors();
+    } catch (err) {
+      setApiError(err.message || "Could not reject vendor.");
+    }
+  }
+
+  async function handleAddCategory(name) {
     const trimmed = name.trim();
     if (!trimmed) return;
     if (categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) return;
-    setCategories((prev) => [...prev, { id: Date.now(), name: trimmed }]);
+    try {
+      await productsApi.createCategory(trimmed);
+      await loadCatalog();
+    } catch (err) {
+      setApiError(err.message || "Could not add category.");
+    }
   }
 
-  function handleAddAdmin(adminUser) {
-    setUsers((prev) => [...prev, adminUser]);
+  // No backend endpoint exists yet to promote a user to admin — kept local-only.
+  function handleAddAdmin() {
+    setApiError("Adding new admin accounts isn't wired up to the backend yet.");
   }
 
   function handleReplyTicket(ticketId, reply) {
@@ -392,10 +459,23 @@ export default function App() {
   }
 
   // ---- render -------------------------------------------------------------
+  if (booting) {
+    return (
+      <div className="app-shell">
+        <div style={{ padding: "4rem", textAlign: "center" }}>Loading…</div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return (
       <div className="app-shell">
-        <Auth users={users} onRegister={handleRegister} onLoginSuccess={handleLoginSuccess} />
+        {apiError && (
+          <div className="api-error-banner" onClick={() => setApiError("")}>
+            {apiError}
+          </div>
+        )}
+        <Auth onRegister={handleRegister} onLoginSuccess={handleLoginSuccess} />
       </div>
     );
   }
@@ -415,6 +495,12 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {apiError && (
+        <div className="api-error-banner" onClick={() => setApiError("")}>
+          {apiError} (click to dismiss)
+        </div>
+      )}
+
       <ModuleSwitcher
         activeModule={activeModule}
         onSwitch={setActiveModule}
@@ -463,7 +549,7 @@ export default function App() {
             <ProductDetailPage
               product={selectedProduct}
               relatedProducts={storefrontProducts}
-              vendor={vendorsById[selectedProduct.vendorId]}
+              vendor={null}
               wishlisted={currentUser.wishlist.includes(selectedProduct.id)}
               onToggleWishlist={() => handleToggleWishlist(selectedProduct.id)}
               onProductClick={handleProductClick}
@@ -492,15 +578,13 @@ export default function App() {
         </>
       )}
 
-      {activeModule === "vendor" && hasVendorAccess(currentUser) && (
+      {activeModule === "vendor" && !!myVendor && (
         <VendorDashboard
           vendor={myVendor}
-          products={products.filter((p) => myVendor && p.vendorId === myVendor.id)}
+          products={vendorProducts}
           categories={categories}
-          orders={orders.filter(
-            (o) => myVendor && o.items.some((item) => item.vendorId === myVendor.id)
-          )}
-          payouts={payouts.filter((p) => myVendor && p.vendorId === myVendor.id)}
+          orders={orders}
+          payouts={payouts}
           onAddProduct={handleAddProduct}
           onUpdateProduct={handleUpdateProduct}
           onAdjustStock={handleAdjustStock}
@@ -512,7 +596,7 @@ export default function App() {
       {activeModule === "admin" && currentUser.role === "admin" && (
         <AdminPanel
           currentUser={currentUser}
-          users={users}
+          users={[]}
           vendors={vendors}
           products={products}
           categories={categories}

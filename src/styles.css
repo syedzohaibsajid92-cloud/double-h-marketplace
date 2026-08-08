@@ -2195,3 +2195,13 @@ body {
     display: inline-flex;
   }
 }
+
+.api-error-banner {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid #fecaca;
+}

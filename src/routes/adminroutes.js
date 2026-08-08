@@ -6,9 +6,9 @@ const { verifyToken } = require("../middleware/authMiddleware");
 const requireAdmin = require("../middleware/requireAdmin");
 
 const vendorCtrl = require("../controllers/adminVendorController");
-const productCtrl = require("../controllers/adminProductController");
+const productCtrl = require("../controllers/adminproductController");
 const analyticsCtrl = require("../controllers/adminAnalyticsController");
-const couponCtrl = require("../controllers/coupencontroller");
+const couponCtrl = require("../controllers/coupenController");
 const cmsCtrl = require("../controllers/CMSController");
 
 // All admin routes require: valid JWT + role === 'admin'

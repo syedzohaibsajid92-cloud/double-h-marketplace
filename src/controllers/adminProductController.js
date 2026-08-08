@@ -10,14 +10,14 @@ async function getPendingProducts(req, res) {
       `SELECT p.id, p.name, p.price, p.vendor_id, v.business_name AS vendor_name, p.created_at
        FROM products p
        LEFT JOIN vendors v ON v.id = p.vendor_id
-       WHERE p.status = 'pending'
+       WHERE p.approval_status = 'pending'
        ORDER BY p.created_at ASC
        LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
 
     const countResult = await pool.query(
-      `SELECT COUNT(*) FROM products WHERE status = 'pending'`
+      `SELECT COUNT(*) FROM products WHERE approval_status = 'pending'`
     );
 
     res.json({
@@ -40,9 +40,9 @@ async function approveProduct(req, res) {
 
     const result = await pool.query(
       `UPDATE products
-       SET status = 'approved', reviewed_by = $1, reviewed_at = NOW(), rejection_reason = NULL
+       SET approval_status = 'approved', reviewed_by = $1, reviewed_at = NOW(), rejection_reason = NULL
        WHERE id = $2
-       RETURNING id, name, status`,
+       RETURNING id, name, approval_status`,
       [adminId, id]
     );
 
@@ -70,9 +70,9 @@ async function rejectProduct(req, res) {
 
     const result = await pool.query(
       `UPDATE products
-       SET status = 'rejected', reviewed_by = $1, reviewed_at = NOW(), rejection_reason = $2
+       SET approval_status = 'rejected', reviewed_by = $1, reviewed_at = NOW(), rejection_reason = $2
        WHERE id = $3
-       RETURNING id, name, status`,
+       RETURNING id, name, approval_status`,
       [adminId, reason, id]
     );
 

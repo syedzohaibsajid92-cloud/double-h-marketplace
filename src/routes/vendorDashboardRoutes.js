@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { getVendorDashboard } = require("../controllers/vendordashboardController");
+const { getVendorDashboard } = require("../controllers/vendorDashboardController");
 
 // Destructure verifyToken (or verifyVendor) from authMiddleware
 const { verifyToken } = require("../middleware/authMiddleware");

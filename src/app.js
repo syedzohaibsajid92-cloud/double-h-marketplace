@@ -2,8 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
-const path = require("path"); // Added path module
-
+const path = require("path");
 
 // Route imports
 const userRoutes = require("./routes/userRoutes");
@@ -29,11 +28,16 @@ const checkoutRoutes = require("./routes/checkoutRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 const returnRoutes = require("./routes/returnRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
-const imageRoutes = require("./routes/imageRoutes"); // Added Image routes
-const brandRoutes = require('./routes/brandRoutes');
-const stockRoutes = require('./routes/stockRoutes');
-const discountRoutes = require('./routes/discountRoutes');
+const imageRoutes = require("./routes/imageRoutes");
+const brandRoutes = require("./routes/brandRoutes");
+const stockRoutes = require("./routes/stockRoutes");
+const discountRoutes = require("./routes/discountRoutes");
 
+// Newly added route imports
+const analyticsRoutes = require("./routes/analyticsRoutes");
+const payoutRoutes = require("./routes/payoutRoutes");
+const revenueRoutes = require("./routes/revenueRoutes");
+const salesRoutes = require("./routes/salesRoutes");
 
 const app = express();
 
@@ -42,12 +46,12 @@ app.use(express.json());
 app.use(cors());
 app.use(
   helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" } // Allows frontend to fetch uploaded images freely
+    crossOriginResourcePolicy: { policy: "cross-origin" }
   })
 );
 app.use(morgan("dev"));
 
-// Serve static files from the uploads directory (located at the root level)
+// Serve static files from the uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Root Endpoint
@@ -79,8 +83,15 @@ app.use("/api/checkout", checkoutRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/returns", returnRoutes);
 app.use("/api/inventory", inventoryRoutes);
-app.use("/api/images", imageRoutes); // Added Image API route
-app.use('/api/brands', brandRoutes);
-app.use('/api/stock', stockRoutes);
-app.use('/api/discounts', discountRoutes);
+app.use("/api/images", imageRoutes);
+app.use("/api/brands", brandRoutes);
+app.use("/api/stock", stockRoutes);
+app.use("/api/discounts", discountRoutes);
+
+// Newly mounted endpoints
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/payouts", payoutRoutes);
+app.use("/api/revenue", revenueRoutes);
+app.use("/api/sales", salesRoutes);
+
 module.exports = app;

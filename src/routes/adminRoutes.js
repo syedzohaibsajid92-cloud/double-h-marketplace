@@ -8,7 +8,7 @@ const requireAdmin = require("../middleware/requireAdmin");
 const vendorCtrl = require("../controllers/adminVendorController");
 const productCtrl = require("../controllers/adminproductController");
 const analyticsCtrl = require("../controllers/adminAnalyticsController");
-const couponCtrl = require("../controllers/coupenController");
+const couponCtrl = require("../controllers/couponController");
 const cmsCtrl = require("../controllers/CMSController");
 
 // All admin routes require: valid JWT + role === 'admin'

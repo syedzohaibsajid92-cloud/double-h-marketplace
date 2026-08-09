@@ -8,10 +8,13 @@ import {
   EyeOff,
   LogIn,
   UserPlus,
+  ShieldCheck,
+  ArrowLeft,
 } from "lucide-react";
 import logo from "../assets/logo.jpeg";
 import {
   DEMO_LOGINS,
+  generateOtp,
   isValidEmail,
   isValidNameToken,
   sanitizeNameInput,
@@ -22,11 +25,7 @@ import {
 const EMPTY_SIGNUP = { first_name: "", last_name: "", email: "", password: "", phone: "" };
 const EMPTY_LOGIN = { email: "", password: "" };
 
-// onLoginSuccess(credentials) and onRegister(formData) now call the real
-// backend and return a Promise that resolves once the user is logged in,
-// or throws an Error with a user-facing message on failure.
-export default function Auth({ onRegister, onLoginSuccess }) {
-  const [submitting, setSubmitting] = useState(false);
+export default function Auth({ users = [], onRegister, onLoginSuccess }) {
   const [mode, setMode] = useState("login"); // "login" | "signup" | "verify"
   const [showPassword, setShowPassword] = useState(false);
 
@@ -36,46 +35,53 @@ export default function Auth({ onRegister, onLoginSuccess }) {
   const [signupForm, setSignupForm] = useState(EMPTY_SIGNUP);
   const [signupErrors, setSignupErrors] = useState({});
 
+  const [pendingUser, setPendingUser] = useState(null); // signupForm, kept while verifying OTP
+  const [otpInput, setOtpInput] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [otpNotice, setOtpNotice] = useState("");
+
   function switchMode(next) {
     setMode(next);
     setLoginError("");
     setSignupErrors({});
+    setOtpError("");
+    setOtpNotice("");
   }
 
   function handleLoginChange(field, value) {
     setLoginForm((prev) => ({ ...prev, [field]: value }));
+    if (loginError) setLoginError(""); // Instant error clearing when user edits input
   }
 
-  async function handleLoginSubmit(e) {
+  function handleLoginSubmit(e) {
     e.preventDefault();
-    setLoginError("");
+    setLoginError(""); // Reset error state on attempt
 
-    if (!loginForm.email || !loginForm.password) {
+    const trimmedEmail = loginForm.email.trim().toLowerCase();
+    const rawPassword = loginForm.password;
+
+    if (!trimmedEmail || !rawPassword) {
       setLoginError("Email and password are required.");
       return;
     }
 
-    setSubmitting(true);
-    try {
-      await onLoginSuccess({ email: loginForm.email.trim(), password: loginForm.password });
-    } catch (err) {
-      setLoginError(err.message || "Invalid email or password.");
-    } finally {
-      setSubmitting(false);
+    const match = users.find(
+      (u) => u.email.toLowerCase() === trimmedEmail
+    );
+
+    if (!match || match.password !== rawPassword) {
+      setLoginError("Invalid email or password.");
+      return;
     }
+
+    onLoginSuccess(match);
   }
 
-  async function handleDemoLogin(demo) {
+  function handleDemoLogin(demo) {
     setLoginForm({ email: demo.email, password: demo.password });
     setLoginError("");
-    setSubmitting(true);
-    try {
-      await onLoginSuccess({ email: demo.email, password: demo.password });
-    } catch (err) {
-      setLoginError(err.message || "Demo account isn't set up on this backend yet.");
-    } finally {
-      setSubmitting(false);
-    }
+    const match = users.find((u) => u.email.toLowerCase() === demo.email.toLowerCase());
+    if (match) onLoginSuccess(match);
   }
 
   function handleSignupChange(field, value) {
@@ -83,6 +89,11 @@ export default function Auth({ onRegister, onLoginSuccess }) {
     if (field === "first_name" || field === "last_name") clean = sanitizeNameInput(value);
     if (field === "phone") clean = sanitizePhoneInput(value);
     setSignupForm((prev) => ({ ...prev, [field]: clean }));
+
+    // Clear specific field error on typing
+    if (signupErrors[field]) {
+      setSignupErrors((prev) => ({ ...prev, [field]: null }));
+    }
   }
 
   function validateSignup() {
@@ -90,39 +101,76 @@ export default function Auth({ onRegister, onLoginSuccess }) {
     if (!signupForm.first_name.trim()) errors.first_name = "First name is required.";
     else if (!isValidNameToken(signupForm.first_name))
       errors.first_name = "Letters only, no spaces or numbers.";
+
     if (!signupForm.last_name.trim()) errors.last_name = "Last name is required.";
     else if (!isValidNameToken(signupForm.last_name))
       errors.last_name = "Letters only, no spaces or numbers.";
+
     if (!signupForm.email.trim()) errors.email = "Email is required.";
     else if (!isValidEmail(signupForm.email)) errors.email = "Enter a valid email address.";
-    if (!signupForm.password || signupForm.password.length < 6)
-      errors.password = "Password must be at least 6 characters.";
+    else if (users.some((u) => u.email.toLowerCase() === signupForm.email.trim().toLowerCase()))
+      errors.email = "An account with this email already exists.";
+
+    // Password validation: minimum 8 characters and at least 1 special character
+    const specialCharRegex = /[@$!%*?&#]/;
+    if (!signupForm.password) {
+      errors.password = "Password is required.";
+    } else if (signupForm.password.length < 8) {
+      errors.password = "Password must be at least 8 characters long.";
+    } else if (!specialCharRegex.test(signupForm.password)) {
+      errors.password = "Password must contain at least one special character (@, $, !, %, *, ?, &, #).";
+    }
+
     if (signupForm.phone && !isValidPhone(signupForm.phone))
       errors.phone = "Enter an 11-digit number starting with 0 (e.g. 03001234567).";
+
     return errors;
   }
 
-  async function handleSignupSubmit(e) {
+  function handleSignupSubmit(e) {
     e.preventDefault();
     const errors = validateSignup();
     setSignupErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    setSubmitting(true);
-    try {
-      await onRegister({
-        first_name: signupForm.first_name.trim(),
-        last_name: signupForm.last_name.trim(),
-        email: signupForm.email.trim(),
-        password: signupForm.password,
-        phone: signupForm.phone.trim(),
-      });
-      // onRegister logs the new user straight in on success
-    } catch (err) {
-      setSignupErrors({ email: err.message || "Could not create account. Please try again." });
-    } finally {
-      setSubmitting(false);
+    const otp = generateOtp();
+    setPendingUser({ ...signupForm, otp });
+    setOtpInput("");
+    setOtpError("");
+    setOtpNotice(`Dev mode: your verification code is ${otp} (this would be emailed in production).`);
+    setMode("verify");
+  }
+
+  function handleResendOtp() {
+    const otp = generateOtp();
+    setPendingUser((prev) => ({ ...prev, otp }));
+    setOtpNotice(`New code sent. Dev mode: your verification code is ${otp}.`);
+    setOtpError("");
+    setOtpInput("");
+  }
+
+  function handleVerifySubmit(e) {
+    e.preventDefault();
+    if (otpInput.trim() !== pendingUser.otp) {
+      setOtpError("Incorrect code. Please try again.");
+      return;
     }
+
+    const newUser = {
+      id: Date.now(),
+      first_name: pendingUser.first_name.trim(),
+      last_name: pendingUser.last_name.trim(),
+      email: pendingUser.email.trim().toLowerCase(),
+      password: pendingUser.password,
+      phone: pendingUser.phone.trim(),
+      role: "customer",
+      is_verified: true,
+      is_vendor: false,
+      wishlist: [],
+    };
+
+    onRegister(newUser);
+    onLoginSuccess(newUser);
   }
 
   return (
@@ -177,25 +225,10 @@ export default function Auth({ onRegister, onLoginSuccess }) {
 
               {loginError && <p className="auth-error">{loginError}</p>}
 
-              <button type="submit" className="btn btn-primary auth-submit" disabled={submitting}>
-                <LogIn size={15} /> {submitting ? "Signing in…" : "Sign In"}
+              <button type="submit" className="btn btn-primary auth-submit" disabled={busy}>
+                <LogIn size={15} /> {busy ? "Signing in…" : "Sign In"}
               </button>
             </form>
-
-            <div className="auth-demo">
-              <span>Quick demo access:</span>
-              <div className="demo-chip-row">
-                {DEMO_LOGINS.map((demo) => (
-                  <button
-                    key={demo.role}
-                    className="demo-chip"
-                    onClick={() => handleDemoLogin(demo)}
-                  >
-                    {demo.label}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <p className="auth-switch">
               Don't have an account?{" "}
@@ -266,7 +299,7 @@ export default function Auth({ onRegister, onLoginSuccess }) {
                 <div className="password-input">
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="At least 6 characters"
+                    placeholder="At least 8 chars & 1 special char"
                     value={signupForm.password}
                     onChange={(e) => handleSignupChange("password", e.target.value)}
                   />
@@ -299,8 +332,8 @@ export default function Auth({ onRegister, onLoginSuccess }) {
                 {signupErrors.phone && <em className="auth-field-error">{signupErrors.phone}</em>}
               </label>
 
-              <button type="submit" className="btn btn-primary auth-submit" disabled={submitting}>
-                <UserPlus size={15} /> {submitting ? "Creating account…" : "Create Account"}
+              <button type="submit" className="btn btn-primary auth-submit" disabled={busy}>
+                <UserPlus size={15} /> {busy ? "Creating…" : "Create Account"}
               </button>
             </form>
 
@@ -311,7 +344,49 @@ export default function Auth({ onRegister, onLoginSuccess }) {
           </>
         )}
 
-        {mode === "verify" && null}
+        {mode === "verify" && pendingUser && (
+          <>
+            <button className="back-link" onClick={() => switchMode("signup")}>
+              <ArrowLeft size={15} /> Back
+            </button>
+            <h1 className="auth-title">
+              <ShieldCheck size={18} /> Verify Your Email
+            </h1>
+            <p className="auth-subtitle">
+              Enter the 6-digit code sent to <strong>{pendingUser.email}</strong>.
+            </p>
+
+            {otpNotice && <p className="auth-notice">{otpNotice}</p>}
+
+            <form className="auth-form" onSubmit={handleVerifySubmit}>
+              <label className="auth-field">
+                <span>
+                  <ShieldCheck size={14} /> Verification code
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="123456"
+                  className="otp-input"
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ""))}
+                />
+              </label>
+
+              {otpError && <p className="auth-error">{otpError}</p>}
+
+              <button type="submit" className="btn btn-primary auth-submit" disabled={busy}>
+                <ShieldCheck size={15} /> {busy ? "Verifying…" : "Verify & Continue"}
+              </button>
+            </form>
+
+            <p className="auth-switch">
+              Didn't get a code?{" "}
+              <button onClick={handleResendOtp}>Resend code</button>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

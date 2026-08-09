@@ -224,14 +224,16 @@ export default function App() {
       })
       .filter(Boolean);
 
-    try {
+   try {
       await ordersApi.placeOrder(currentUser, lines);
       setCart([]);
       await loadCatalog(); // stock levels changed
       const myOrders = await ordersApi.fetchMyOrders();
       setOrders(myOrders);
+      return true;
     } catch (err) {
       setApiError(err.message || "Could not place the order. Please try again.");
+      return false;
     }
   }
 

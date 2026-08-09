@@ -50,7 +50,8 @@ export default function CartCheckout({ cart, products, onUpdateQty, onPlaceOrder
 
   useEffect(() => {
     api
-      .get("/addresses")
+      api
+      .get("/api/addresses", { auth: true })
       .then((res) => {
         const rows = Array.isArray(res) ? res : res.addresses || [];
         setAddresses(rows);
@@ -92,7 +93,7 @@ export default function CartCheckout({ cart, products, onUpdateQty, onPlaceOrder
 
     setSavingAddress(true);
     try {
-      const res = await api.post("/addresses", { ...addressForm, country: "Pakistan" });
+      const res = await api.post("/api/addresses", { ...addressForm, country: "Pakistan" }, { auth: true });
       const saved = res.address || res;
       setAddresses((prev) => [...prev, saved]);
       setSelectedAddressId(saved.id);

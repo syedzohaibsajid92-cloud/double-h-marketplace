@@ -23,6 +23,7 @@ const CATEGORY_IMAGES = {
   Machinery: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&q=80",
   Plumbing: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=500&q=80",
   "Drill Machine": "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&q=80",
+  "Electrical Tools": "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=500&q=80",
 };
 
 const CATEGORY_ICONS = {

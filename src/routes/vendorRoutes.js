@@ -4,6 +4,7 @@ const router = express.Router();
 const { getVendorInventory, updateProductStock } = require("../controllers/inventoryController");
 const {
     createVendor,
+    getMyVendor,
     getVendors,
     getVendorById,
     getMyVendor,
@@ -49,6 +50,11 @@ router.get(
     authorizeRoles("Customer", "Vendor"),
     getMyVerificationStatus
 );
+
+// =====================================
+// Logged-in user's own vendor record (placed before /:id)
+// =====================================
+router.get("/me", verifyToken, getMyVendor);
 
 // =====================================
 // Inventory Routes (Placed before /:id)

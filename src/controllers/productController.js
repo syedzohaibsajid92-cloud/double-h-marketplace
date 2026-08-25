@@ -4,7 +4,7 @@ const pool = require("../config/db");
 // 1. GET ALL PRODUCTS (Supports Search, Filtering, & Sorting)
 const getProducts = async (req, res) => {
     try {
-        const { category, brand, minPrice, maxPrice, search, sort } = req.query;
+        const { category, brand, minPrice, maxPrice, search, sort, vendor_id } = req.query;
 
         let query = `
             SELECT 
@@ -21,6 +21,12 @@ const getProducts = async (req, res) => {
         let index = 1;
 
         // Dynamic Filtering
+        if (vendor_id) {
+            query += ` AND p.vendor_id = $${index}`;
+            values.push(vendor_id);
+            index++;
+        }
+
         if (category) {
             query += ` AND p.category_id = $${index}`;
             values.push(category);

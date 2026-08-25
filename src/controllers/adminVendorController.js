@@ -42,9 +42,10 @@ const approveVendor = async (req, res) => {
 
         const result = await pool.query(
             `UPDATE vendors
-             SET status = 'approved', reviewed_by = $1, reviewed_at = NOW(), rejection_reason = NULL
+             SET status = 'approved', approval_status = 'Approved', is_active = TRUE,
+                 reviewed_by = $1, reviewed_at = NOW(), rejection_reason = NULL
              WHERE id = $2
-             RETURNING id, business_name, status`,
+             RETURNING id, business_name, status, approval_status, is_active`,
             [adminId, id]
         );
 
@@ -72,9 +73,10 @@ const rejectVendor = async (req, res) => {
 
         const result = await pool.query(
             `UPDATE vendors
-             SET status = 'rejected', reviewed_by = $1, reviewed_at = NOW(), rejection_reason = $2
+             SET status = 'rejected', approval_status = 'Rejected', is_active = FALSE,
+                 reviewed_by = $1, reviewed_at = NOW(), rejection_reason = $2
              WHERE id = $3
-             RETURNING id, business_name, status`,
+             RETURNING id, business_name, status, approval_status, is_active`,
             [adminId, reason, id]
         );
 

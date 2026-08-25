@@ -213,8 +213,23 @@ export default function ProductsPage({
                 onClick={() => onProductClick(p.id)}
               >
                 <span className="thumb">
-                  <Wrench size={26} className="thumb-icon" />
-                </span>
+  {p.image_url ? (
+    <img
+      src={p.image_url}
+      alt={p.name}
+      className="thumb-img"
+      onError={(e) => {
+        e.target.style.display = "none";
+        e.target.nextSibling.style.display = "flex";
+      }}
+    />
+  ) : null}
+  <Wrench
+    size={26}
+    className="thumb-icon"
+    style={{ display: p.image_url ? "none" : "flex" }}
+  />
+</span>
                 <span className="product-name">{p.name}</span>
                 <Stars rating={p.rating} />
                 <span className="product-price">{formatPrice(p.price)}</span>

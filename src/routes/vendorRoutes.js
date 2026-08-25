@@ -4,7 +4,6 @@ const router = express.Router();
 const { getVendorInventory, updateProductStock } = require("../controllers/inventoryController");
 const {
     createVendor,
-    getMyVendor,
     getVendors,
     getVendorById,
     getMyVendor,
@@ -52,7 +51,7 @@ router.get(
 );
 
 // =====================================
-// Logged-in user's own vendor record (placed before /:id)
+// Logged-in user - Get My Vendor Profile (placed before /:id)
 // =====================================
 router.get("/me", verifyToken, getMyVendor);
 
@@ -61,15 +60,6 @@ router.get("/me", verifyToken, getMyVendor);
 // =====================================
 router.get("/inventory", verifyToken, getVendorInventory);
 router.patch("/inventory/:productId/stock", verifyToken, updateProductStock);
-
-// =====================================
-// Logged-in user - Get My Vendor Profile
-// =====================================
-router.get(
-    "/me",
-    verifyToken,
-    getMyVendor
-);
 
 // =====================================
 // Admin - Get All Vendors

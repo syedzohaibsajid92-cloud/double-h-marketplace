@@ -327,7 +327,6 @@ module.exports = {
     getMyVendor,
     getVendors,
     getVendorById,
-    getMyVendor,
     updateVendor,
     deleteVendor
 };

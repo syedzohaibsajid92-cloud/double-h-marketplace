@@ -17,6 +17,9 @@ import Stars from "./Stars";
 // Preset image mapping for category cards
 const CATEGORY_IMAGES = {
   "Power Tools": "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=500&q=80",
+  "Electrical Tools": "https://images.unsplash.com/photo-1645639416550-26ac4bf20626?w=500&q=80",
+
+  
   "Hand Tools": "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=500&q=80",
   Fasteners: "https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=500&q=80",
   "Safety Gear": "https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=500&q=80",
@@ -105,18 +108,20 @@ export default function HomePage({
                 onClick={() => onCategoryClick(cat)}
                 style={{ overflow: "hidden" }}
               >
-                <span 
-                  className="thumb category-thumb"
-                  style={{ 
-                    width: "100%", 
-                    height: "110px", 
-                    overflow: "hidden", 
-                    display: "flex", 
-                    alignItems: "center", 
-                    justifyContent: "center",
-                    borderRadius: "8px 8px 0 0" 
-                  }}
-                >
+                <span
+  className="thumb category-thumb"
+  style={{
+    width: "calc(100% + 36px)",
+    height: "110px",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "10px 10px 0 0",
+    margin: "-18px -18px 0 -18px"
+  }}
+>
+                
                   {imageUrl ? (
                     <img
                       src={imageUrl}

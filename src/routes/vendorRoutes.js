@@ -6,6 +6,7 @@ const {
     createVendor,
     getVendors,
     getVendorById,
+    getMyVendor,
     updateVendor,
     deleteVendor
 } = require("../controllers/vendorController");
@@ -54,6 +55,15 @@ router.get(
 // =====================================
 router.get("/inventory", verifyToken, getVendorInventory);
 router.patch("/inventory/:productId/stock", verifyToken, updateProductStock);
+
+// =====================================
+// Logged-in user - Get My Vendor Profile
+// =====================================
+router.get(
+    "/me",
+    verifyToken,
+    getMyVendor
+);
 
 // =====================================
 // Admin - Get All Vendors

@@ -49,7 +49,8 @@ const verifyAdmin = (req, res, next) => {
 // Protects endpoints requiring Vendor privileges
 const verifyVendor = (req, res, next) => {
   verifyToken(req, res, () => {
-    if (req.user && (req.user.role === "vendor" || req.user.role === "admin")) {
+    const role = req.user?.role?.toLowerCase();
+    if (role === "vendor" || role === "admin") {
       next();
     } else {
       res.status(403).json({

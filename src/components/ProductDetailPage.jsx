@@ -50,9 +50,17 @@ export default function ProductDetailPage({
       </nav>
 
       <div className="detail-grid">
-        <div className="detail-image">
-          <Wrench size={72} />
-        </div>
+        <div className="detail-image" style={{ overflow: "hidden" }}>
+  {(product.image || product.image_url) ? (
+    <img
+      src={product.image || product.image_url}
+      alt={product.name}
+      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+    />
+  ) : (
+    <Wrench size={72} />
+  )}
+</div>
 
         <div className="detail-info">
           <h1>{product.name}</h1>
@@ -139,16 +147,39 @@ export default function ProductDetailPage({
         <h2 className="section-title">Related Products</h2>
         <div className="related-grid">
           {related.length > 0 ? (
-            related.map((p) => (
-              <button
-                key={p.id}
-                className="related-card"
-                onClick={() => onProductClick(p.id)}
-              >
-                <Wrench size={16} /> {p.name}
-              </button>
-            ))
-          ) : (
+  related.map((p) => (
+    <button
+      key={p.id}
+      className="related-card"
+      onClick={() => onProductClick(p.id)}
+    >
+      <span
+        className="thumb"
+        style={{
+          width: "60px",
+          height: "60px",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: "6px",
+          flexShrink: 0,
+        }}
+      >
+        {(p.image || p.image_url) ? (
+          <img
+            src={p.image || p.image_url}
+            alt={p.name}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : (
+          <Wrench size={16} className="thumb-icon" />
+        )}
+      </span>
+      <span>{p.name}</span>
+    </button>
+  ))
+) : (
             <p className="empty-state">No related products found.</p>
           )}
         </div>

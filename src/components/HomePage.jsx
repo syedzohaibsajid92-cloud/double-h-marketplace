@@ -27,6 +27,7 @@ const CATEGORY_IMAGES = {
 };
 
 const CATEGORY_IMAGE_POSITION = {
+  "Power Tools": "center 20%",
   "Electrical Tools": "center 15%",
 };
 

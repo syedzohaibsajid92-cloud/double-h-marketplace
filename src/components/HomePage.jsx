@@ -17,16 +17,17 @@ import Stars from "./Stars";
 // Preset image mapping for category cards
 const CATEGORY_IMAGES = {
   "Power Tools": "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=500&q=80",
-  "Electrical Tools": "https://images.unsplash.com/photo-1645639416550-26ac4bf20626?w=500&q=80",
-
-  
+  "Electrical Tools": "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=500&q=80",
   "Hand Tools": "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=500&q=80",
   Fasteners: "https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=500&q=80",
   "Safety Gear": "https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=500&q=80",
   Machinery: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&q=80",
   Plumbing: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=500&q=80",
   "Drill Machine": "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&q=80",
-  "Electrical Tools": "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=500&q=80",
+};
+
+const CATEGORY_IMAGE_POSITION = {
+  "Electrical Tools": "center 15%",
 };
 
 const CATEGORY_ICONS = {
@@ -101,7 +102,6 @@ export default function HomePage({
           {categoryNames.map((cat) => {
             const Icon = CATEGORY_ICONS[cat] || Wrench;
             const imageUrl = CATEGORY_IMAGES[cat];
-
             return (
               <button
                 key={cat}
@@ -110,24 +110,28 @@ export default function HomePage({
                 style={{ overflow: "hidden" }}
               >
                 <span
-  className="thumb category-thumb"
-  style={{
-    width: "calc(100% + 36px)",
-    height: "110px",
-    overflow: "hidden",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "10px 10px 0 0",
-    margin: "-18px -18px 0 -18px"
-  }}
->
-                
+                  className="thumb category-thumb"
+                  style={{
+                    width: "calc(100% + 36px)",
+                    height: "110px",
+                    overflow: "hidden",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "10px 10px 0 0",
+                    margin: "-18px -18px 0 -18px",
+                  }}
+                >
                   {imageUrl ? (
                     <img
                       src={imageUrl}
                       alt={cat}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        objectPosition: CATEGORY_IMAGE_POSITION[cat] || "center",
+                      }}
                     />
                   ) : (
                     <Icon size={28} />
@@ -155,16 +159,16 @@ export default function HomePage({
                 onClick={() => onProductClick(p.id)}
                 style={{ overflow: "hidden" }}
               >
-                <span 
+                <span
                   className="thumb"
-                  style={{ 
-                    width: "100%", 
-                    height: "160px", 
-                    overflow: "hidden", 
-                    display: "flex", 
-                    alignItems: "center", 
+                  style={{
+                    width: "100%",
+                    height: "160px",
+                    overflow: "hidden",
+                    display: "flex",
+                    alignItems: "center",
                     justifyContent: "center",
-                    borderRadius: "8px 8px 0 0" 
+                    borderRadius: "8px 8px 0 0",
                   }}
                 >
                   {imgSource ? (

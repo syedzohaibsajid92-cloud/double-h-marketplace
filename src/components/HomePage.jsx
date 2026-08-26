@@ -113,7 +113,7 @@ export default function HomePage({
                   className="thumb category-thumb"
                   style={{
                     width: "calc(100% + 36px)",
-                    height: "110px",
+                    aspectRatio: "3 / 1",
                     overflow: "hidden",
                     display: "flex",
                     alignItems: "center",

@@ -22,7 +22,7 @@ import { ApiError } from "../api/client";
 const EMPTY_SIGNUP = { first_name: "", last_name: "", email: "", password: "", phone: "" };
 const EMPTY_LOGIN = { email: "", password: "" };
 
-export default function Auth({ onRegister, onLoginSuccess }) {
+export default function Auth({ onRegister, onLoginSuccess, onCancel }) {
   const [mode, setMode] = useState("login"); // "login" | "signup"
   const [showPassword, setShowPassword] = useState(false);
 
@@ -138,7 +138,12 @@ export default function Auth({ onRegister, onLoginSuccess }) {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
+            <div className="auth-card">
+        {onCancel && (
+          <button className="back-link" onClick={onCancel} type="button">
+            ← Back to browsing
+          </button>
+        )}
         <div className="auth-brand">
           <img src={logo} alt="PAK Hardware logo" className="brand-logo" />
           <span className="brand-name">PAK HARDWARE</span>

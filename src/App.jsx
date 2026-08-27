@@ -85,13 +85,20 @@ export default function App() {
         /* ignore */
       }
       try {
-        const allOrders = await ordersApi.fetchAllOrders();
-        setOrders(
-          allOrders.map((o) => ({ id: o.id, status: o.status, date: (o.created_at || "").slice(0, 10), items: [] }))
-        );
-      } catch {
-        /* ignore */
-      }
+  const allOrders = await ordersApi.fetchAllOrders();
+  setOrders(
+    allOrders.map((o) => ({
+      id: o.id,
+      status: o.status,
+      date: (o.created_at || "").slice(0, 10),
+      customerName: `${o.first_name || ""} ${o.last_name || ""}`.trim(),
+      customerEmail: o.customer_email,
+      items: (o.items || []).filter((it) => it.productId !== null),
+    }))
+  );
+} catch {
+  /* ignore */
+}
     }
   }, []);
 
@@ -213,8 +220,12 @@ export default function App() {
     });
   }
 
-  async function handlePlaceOrder() {
-    if (cart.length === 0 || !currentUser) return;
+    async function handlePlaceOrder() {
+    if (cart.length === 0) return;
+    if (!currentUser) {
+      handleGoToLogin();
+      return;
+    }
 
     const lines = cart
       .map((entry) => {
@@ -283,6 +294,9 @@ export default function App() {
   }
 
   // ---- vendor onboarding -----------------------------------------------
+    function handleGoToLogin() {
+    setScreen("auth");
+  }
   function handleBecomeVendor() {
     setScreen("vendor-onboarding");
   }
@@ -442,12 +456,20 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
     await ordersApi.updateOrderStatus(orderId, status);
     const allOrders = await ordersApi.fetchAllOrders();
     setOrders(
-      allOrders.map((o) => ({ id: o.id, status: o.status, date: (o.created_at || "").slice(0, 10), items: [] }))
+      allOrders.map((o) => ({
+        id: o.id,
+        status: o.status,
+        date: (o.created_at || "").slice(0, 10),
+        customerName: `${o.first_name || ""} ${o.last_name || ""}`.trim(),
+        customerEmail: o.customer_email,
+        items: (o.items || []).filter((it) => it.productId !== null),
+      }))
     );
   } catch (err) {
     setApiError(err.message || "Could not update order status.");
   }
 }
+
   function handleReplyTicket(ticketId, reply) {
     setTickets((prev) =>
       prev.map((t) => (t.id === ticketId ? { ...t, reply, status: "Answered" } : t))
@@ -480,7 +502,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
     );
   }
 
-  if (!currentUser) {
+   if (screen === "auth") {
     return (
       <div className="app-shell">
         {apiError && (
@@ -488,7 +510,11 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
             {apiError}
           </div>
         )}
-        <Auth onRegister={handleRegister} onLoginSuccess={handleLoginSuccess} />
+        <Auth
+          onRegister={handleRegister}
+          onLoginSuccess={handleLoginSuccess}
+          onCancel={() => setScreen("app")}
+        />
       </div>
     );
   }
@@ -514,12 +540,13 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
         </div>
       )}
 
-      <ModuleSwitcher
+          <ModuleSwitcher
         activeModule={activeModule}
         onSwitch={setActiveModule}
         user={currentUser}
         onLogout={handleLogout}
         onBecomeVendor={handleBecomeVendor}
+        onLoginClick={handleGoToLogin}
       />
 
       {activeModule === "store" && (
@@ -563,7 +590,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
               product={selectedProduct}
               relatedProducts={storefrontProducts}
               vendor={null}
-              wishlisted={currentUser.wishlist.includes(selectedProduct.id)}
+              wishlisted={currentUser ? currentUser.wishlist.includes(selectedProduct.id) : false}
               onToggleWishlist={() => handleToggleWishlist(selectedProduct.id)}
               onProductClick={handleProductClick}
               onAddToCart={handleAddToCart}
@@ -606,7 +633,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
         />
       )}
 
-      {activeModule === "admin" && currentUser.role === "admin" && (
+        {activeModule === "admin" && currentUser?.role === "admin" && (
         <AdminPanel
           currentUser={currentUser}
           users={[]}

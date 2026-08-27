@@ -2,8 +2,24 @@ import React from "react";
 import { Store, LayoutDashboard, ShieldCheck, LogOut, Sparkles } from "lucide-react";
 import { hasVendorAccess } from "../data/users";
 
-export default function ModuleSwitcher({ activeModule, onSwitch, user, onLogout, onBecomeVendor }) {
-  if (!user) return null;
+export default function ModuleSwitcher({ activeModule, onSwitch, user, onLogout, onBecomeVendor, onLoginClick }) {
+  if (!user) {
+    return (
+      <div className="module-switcher">
+        <div className="module-tabs">
+          <span className="module-tab active">
+            <Store size={14} />
+            <span className="module-tab-label">Storefront</span>
+          </span>
+        </div>
+        <div className="session-info">
+          <button className="session-logout" onClick={onLoginClick}>
+            Login / Sign Up
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const modules = [{ key: "store", label: "Storefront", icon: Store }];
   if (hasVendorAccess(user)) {

@@ -93,8 +93,15 @@ export default function AdminPanel({
 
   // ---- shared computations ------------------------------------------------
   const allItems = orders.flatMap((o) =>
-    o.items.map((item) => ({ ...item, orderId: o.id, date: o.date, customerName: o.customerName, customerEmail: o.customerEmail }))
-  );
+  o.items.map((item) => ({
+    ...item,
+    orderId: o.id,
+    date: o.date,
+    customerName: o.customerName,
+    customerEmail: o.customerEmail,
+    status: o.status,
+  }))
+);
   const fulfilledItems = allItems.filter((i) => i.status !== "Cancelled" && i.status !== "Terminated");
 
   function salesCountFor(productId) {

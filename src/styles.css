@@ -2211,3 +2211,92 @@ body {
   cursor: pointer;
   border-bottom: 1px solid #fecaca;
 }
+/* ---------- welcome popup + scroll fade-ins ---------- */
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: overlayFade 0.3s ease;
+}
+.welcome-card {
+  background: #1e1e1e;
+  border: 1px solid #2b2b2b;
+  border-radius: 14px;
+  padding: 40px;
+  max-width: 420px;
+  text-align: center;
+  position: relative;
+  animation: popIn 0.35s ease;
+}
+.welcome-card h2 {
+  color: #e8792c;
+  margin: 0 0 12px;
+}
+.welcome-card p {
+  color: #bbb;
+  margin: 0 0 22px;
+}
+.welcome-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: transparent;
+  border: none;
+  color: #999;
+  cursor: pointer;
+}
+@keyframes overlayFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.fade-in-section {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.fade-in-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* ---------- hero slider + animated stats ---------- */
+.hero-fade {
+  animation: heroFadeIn 0.6s ease;
+}
+@keyframes heroFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 18px;
+  margin-bottom: 40px;
+  background: #1e1e1e;
+  border: 1px solid #2b2b2b;
+  border-radius: 14px;
+  padding: 32px 20px;
+}
+.stat-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.stat-block-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #e8792c;
+}
+.stat-block-label {
+  font-size: 13px;
+  color: #999;
+}

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Zap,
   Hammer,
@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Headset,
   ArrowRight,
+  X,
 } from "lucide-react";
 import { formatPrice } from "../data/products";
 import Stars from "./Stars";
@@ -40,13 +41,65 @@ const CATEGORY_ICONS = {
   Plumbing: Droplets,
 };
 
+const HERO_SLIDES = [
+  { title: "Welcome to PAK Hardware Store", subtitle: "Genuine imported tools, shipping across Pakistan" },
+  { title: "Quality You Can Trust", subtitle: "Verified vendors, CNIC-checked, ready to deliver" },
+  { title: "Fast, Reliable Delivery", subtitle: "Free shipping nationwide on orders over Rs. 5,000" },
+];
+
+const STATS = [
+  { label: "Years in Business", value: 5, suffix: "+" },
+  { label: "Products Listed", value: 500, suffix: "+" },
+  { label: "Happy Customers", value: 2000, suffix: "+" },
+  { label: "Verified Vendors", value: 50, suffix: "+" },
+];
 const TRUST_BADGES = [
   { icon: Truck, title: "Nationwide delivery", text: "Free over Rs. 5,000" },
   { icon: ShieldCheck, title: "Verified vendors", text: "CNIC + document checked" },
   { icon: RotateCcw, title: "7-day returns", text: "On damaged or wrong items" },
   { icon: Headset, title: "24/7 assistant", text: "AI + human support" },
 ];
+function AnimatedStat({ value, suffix, label }) {
+  const [ref, visible] = useFadeInOnScroll();
+  const [count, setCount] = useState(0);
 
+  useEffect(() => {
+    if (!visible) return;
+    let start = 0;
+    const duration = 1200;
+    const startTime = performance.now();
+    function tick(now) {
+      const progress = Math.min((now - startTime) / duration, 1);
+      setCount(Math.floor(progress * value));
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }, [visible, value]);
+
+  return (
+    <div className={`stat-block fade-in-section ${visible ? "fade-in-visible" : ""}`} ref={ref}>
+      <span className="stat-block-value">{count}{suffix}</span>
+      <span className="stat-block-label">{label}</span>
+    </div>
+  );
+}
+function useFadeInOnScroll() {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setVisible(true);
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, visible];
+}
 export default function HomePage({
   products,
   categories,
@@ -57,12 +110,40 @@ export default function HomePage({
 }) {
   const categoryNames = categories.map((c) => c.name);
 
-  return (
+    const [showWelcome, setShowWelcome] = useState(true);
+  const [slideIndex, setSlideIndex] = useState(0);
+
+  useEffect(() => {
+    const rotate = setInterval(() => {
+      setSlideIndex((i) => (i + 1) % HERO_SLIDES.length);
+    }, 4000);
+    return () => clearInterval(rotate);
+  }, []);
+  const [trustRef, trustVisible] = useFadeInOnScroll();
+  const [catRef, catVisible] = useFadeInOnScroll();
+  const [prodRef, prodVisible] = useFadeInOnScroll();
+
+    return (
     <div className="page">
+      {showWelcome && (
+        <div className="welcome-overlay" onClick={() => setShowWelcome(false)}>
+          <div className="welcome-card" onClick={(e) => e.stopPropagation()}>
+            <button className="welcome-close" onClick={() => setShowWelcome(false)}>
+              <X size={18} />
+            </button>
+            <h2>Welcome to PAK Hardware Store</h2>
+            <p>Genuine imported tools, shipping across Pakistan.</p>
+            <button className="btn btn-primary" onClick={() => setShowWelcome(false)}>
+              Start Shopping
+            </button>
+          </div>
+        </div>
+      )}
+
       <section className="hero">
-        <div>
-          <h1>Genuine PAK Hardware Tools</h1>
-          <p>Imported quality hardware, now shipping across Pakistan</p>
+                <div>
+          <h1 key={slideIndex} className="hero-fade">{HERO_SLIDES[slideIndex].title}</h1>
+          <p key={`sub-${slideIndex}`} className="hero-fade">{HERO_SLIDES[slideIndex].subtitle}</p>
           <div className="hero-actions">
             <button className="btn btn-primary" onClick={onShopNow}>
               Shop Now <ArrowRight size={15} />
@@ -80,8 +161,12 @@ export default function HomePage({
           ))}
         </div>
       </section>
-
-      <section className="trust-strip">
+      <section className="stats-strip">
+        {STATS.map((s) => (
+          <AnimatedStat key={s.label} value={s.value} suffix={s.suffix} label={s.label} />
+        ))}
+      </section>
+        <section className={`trust-strip fade-in-section ${trustVisible ? "fade-in-visible" : ""}`} ref={trustRef}>
         {TRUST_BADGES.map((b, i) => {
           const Icon = b.icon;
           return (
@@ -97,7 +182,8 @@ export default function HomePage({
       </section>
 
       {/* Categories Section */}
-      <section>
+  
+      <section className={`fade-in-section ${catVisible ? "fade-in-visible" : ""}`} ref={catRef}>
         <h2 className="section-title">Shop by Category</h2>
         <div className="category-grid">
           {categoryNames.map((cat) => {
@@ -146,7 +232,8 @@ export default function HomePage({
       </section>
 
       {/* Featured Products Section */}
-      <section>
+      
+      <section className={`fade-in-section ${prodVisible ? "fade-in-visible" : ""}`} ref={prodRef}>
         <h2 className="section-title">Featured Products</h2>
         {products.length === 0 && <p className="empty-state">No products available yet.</p>}
         <div className="product-grid">

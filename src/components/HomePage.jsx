@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import heroBg from "../assets/hero-bg.jpg.jpeg";
 import {
   Zap,
   Hammer,
@@ -107,6 +108,7 @@ export default function HomePage({
   onCategoryClick,
   onProductClick,
   onSupportClick,
+  isGuest,
 }) {
   const categoryNames = categories.map((c) => c.name);
 
@@ -139,7 +141,30 @@ export default function HomePage({
           </div>
         </div>
       )}
-
+      {isGuest && (
+        <section
+          className="guest-hero"
+                  style={{
+          backgroundImage: `url(${heroBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+        >
+          <div className="guest-hero-overlay">
+            <span className="guest-hero-eyebrow">Trusted hardware, delivered nationwide</span>
+            <h1 key={slideIndex} className="hero-fade">{HERO_SLIDES[slideIndex].title}</h1>
+            <p key={`sub-${slideIndex}`} className="hero-fade">{HERO_SLIDES[slideIndex].subtitle}</p>
+            <button className="btn btn-primary guest-hero-cta" onClick={onShopNow}>
+              Get Started <ArrowRight size={16} />
+            </button>
+            <div className="guest-hero-dots">
+              {HERO_SLIDES.map((_, i) => (
+                <span key={i} className={`guest-hero-dot ${i === slideIndex ? "active" : ""}`} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
       <section className="hero">
                 <div>
           <h1 key={slideIndex} className="hero-fade">{HERO_SLIDES[slideIndex].title}</h1>
@@ -180,9 +205,48 @@ export default function HomePage({
           );
         })}
       </section>
-
+            {isGuest && (
+               <section className="video-showcase">
+          <div className="video-showcase-row">
+            <ul className="video-showcase-checklist">
+              <li>Genuine, imported tools</li>
+              <li>Verified, document-checked vendors</li>
+            </ul>
+            <video
+              className="video-showcase-clip"
+              src="/hero-video.mp4.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+            <ul className="video-showcase-checklist">
+              <li>Fast, nationwide dispatch</li>
+              <li>7-day hassle-free returns</li>
+            </ul>
+          </div>
+          <div className="video-showcase-text">
+            <h2>See Our Store In Action</h2>
+            <p>A quick look at the quality and care behind every PAK Hardware product.</p>
+          </div>
+        </section>
+      )}
+      {isGuest && (
+        <section className="about-section">
+          <h2 className="about-title">About</h2>
+          <div className="about-text">
+            <p>
+              PAK Hardware Store is Pakistan's trusted online marketplace for genuine, imported hardware and tools. We connect verified vendors with customers nationwide, offering everything from power tools to electrical equipment — all backed by document-checked sellers and reliable delivery.
+            </p>
+            <p>
+              Our mission is simple: make it easy to find quality tools at fair prices, with the confidence that every vendor on our platform has been vetted for authenticity and reliability.
+            </p>
+          </div>
+        </section>
+      )}
       {/* Categories Section */}
   
+            {!isGuest && (
       <section className={`fade-in-section ${catVisible ? "fade-in-visible" : ""}`} ref={catRef}>
         <h2 className="section-title">Shop by Category</h2>
         <div className="category-grid">
@@ -229,10 +293,12 @@ export default function HomePage({
             );
           })}
         </div>
-      </section>
+            </section>
+      )}
 
       {/* Featured Products Section */}
       
+            {!isGuest && (
       <section className={`fade-in-section ${prodVisible ? "fade-in-visible" : ""}`} ref={prodRef}>
         <h2 className="section-title">Featured Products</h2>
         {products.length === 0 && <p className="empty-state">No products available yet.</p>}
@@ -275,8 +341,9 @@ export default function HomePage({
               </button>
             );
           })}
-        </div>
+             </div>
       </section>
+      )}
     </div>
   );
 }

@@ -562,7 +562,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
             onSupportClick={goToSupport}
           />
 
-          {page === "home" && (
+                    {page === "home" && (
             <HomePage
               products={storefrontProducts}
               categories={categories}
@@ -570,6 +570,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
               onCategoryClick={handleCategoryClick}
               onProductClick={handleProductClick}
               onSupportClick={goToSupport}
+              isGuest={!currentUser}
             />
           )}
 

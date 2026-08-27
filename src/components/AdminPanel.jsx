@@ -71,6 +71,7 @@ export default function AdminPanel({
   onAddCategory,
   onAddAdmin,
   onReplyTicket,
+  onUpdateOrderStatus,
 }) {
   const [activeItem, setActiveItem] = useState("Overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -709,6 +710,7 @@ export default function AdminPanel({
                         <th>Product</th>
                         <th>Qty</th>
                         <th>Status</th>
+                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -733,6 +735,19 @@ export default function AdminPanel({
                           >
                             {item.status}
                           </td>
+                          <td>
+  <select
+    className="status-select"
+    value={item.status}
+    onChange={(e) => onUpdateOrderStatus(item.orderId, item.productId, e.target.value)}
+  >
+    <option value="Pending">Pending</option>
+    <option value="Processing">Processing</option>
+    <option value="Shipped">Shipped</option>
+    <option value="Delivered">Delivered</option>
+    <option value="Cancelled">Cancelled</option>
+  </select>
+</td>
                         </tr>
                       ))}
                     </tbody>

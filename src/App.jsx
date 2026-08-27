@@ -437,12 +437,23 @@ export default function App() {
   function handleAddAdmin() {
     setApiError("Adding new admin accounts isn't wired up to the backend yet.");
   }
-
+async function handleUpdateOrderStatus(orderId, productId, status) {
+  try {
+    await ordersApi.updateOrderStatus(orderId, status);
+    const allOrders = await ordersApi.fetchAllOrders();
+    setOrders(
+      allOrders.map((o) => ({ id: o.id, status: o.status, date: (o.created_at || "").slice(0, 10), items: [] }))
+    );
+  } catch (err) {
+    setApiError(err.message || "Could not update order status.");
+  }
+}
   function handleReplyTicket(ticketId, reply) {
     setTickets((prev) =>
       prev.map((t) => (t.id === ticketId ? { ...t, reply, status: "Answered" } : t))
     );
   }
+
 
   function handleSubmitTicket({ subject, message }) {
     if (!currentUser) return;
@@ -609,6 +620,7 @@ export default function App() {
           onAddCategory={handleAddCategory}
           onAddAdmin={handleAddAdmin}
           onReplyTicket={handleReplyTicket}
+          onUpdateOrderStatus={handleUpdateOrderStatus}
         />
       )}
     </div>

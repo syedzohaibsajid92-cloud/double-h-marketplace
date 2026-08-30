@@ -30,3 +30,7 @@ export async function createCategory(name) {
   const res = await api.post("/api/categories", { name }, { auth: true });
   return adaptCategory(res.category);
 }
+export async function deleteProduct(id) {
+  await api.del(`/api/products/${id}`, { auth: true });
+  return true;
+}

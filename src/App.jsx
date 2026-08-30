@@ -336,7 +336,14 @@ export default function App() {
     const myProducts = await productsApi.fetchProducts({ vendor_id: myVendor.id });
     setVendorProducts(myProducts);
   }
-
+async function handleDeleteProduct(productId) {
+  try {
+    await productsApi.deleteProduct(productId);
+    await loadCatalog();
+  } catch (err) {
+    setApiError(err.message || "Could not delete product.");
+  }
+}
   async function handleAddProduct(productData) {
     if (!myVendor) return;
     const category = categories.find((c) => c.name === productData.category);
@@ -646,6 +653,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
           onApproveVendor={handleApproveVendor}
           onRejectVendor={handleRejectVendor}
           onAddCategory={handleAddCategory}
+          onDeleteProduct={handleDeleteProduct}
           onAddAdmin={handleAddAdmin}
           onReplyTicket={handleReplyTicket}
           onUpdateOrderStatus={handleUpdateOrderStatus}

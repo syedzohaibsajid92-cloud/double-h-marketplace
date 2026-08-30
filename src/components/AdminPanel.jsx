@@ -72,6 +72,7 @@ export default function AdminPanel({
   onAddAdmin,
   onReplyTicket,
   onUpdateOrderStatus,
+  onDeleteProduct,
 }) {
   const [activeItem, setActiveItem] = useState("Overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -213,7 +214,11 @@ export default function AdminPanel({
     setAdminMsg("New admin account created.");
     setTimeout(() => setAdminMsg(""), 2500);
   }
-
+  function handleDeleteClick(productId, productName) {
+    if (window.confirm(`Delete "${productName}"? This cannot be undone.`)) {
+      onDeleteProduct(productId);
+    }
+  }
   const productsSorted = [...products].sort((a, b) => salesCountFor(b.id) - salesCountFor(a.id));
   const productsShown = zeroSalesOnly ? productsSorted.filter((p) => salesCountFor(p.id) === 0) : productsSorted;
   const vendorsSorted = [...vendors].sort((a, b) => vendorRevenue(b.id) - vendorRevenue(a.id));
@@ -651,7 +656,7 @@ export default function AdminPanel({
               </div>
               <div className="table-scroll">
                 <table className="data-table">
-                  <thead>
+                                    <thead>
                     <tr>
                       <th>Product</th>
                       <th>Vendor</th>
@@ -659,6 +664,7 @@ export default function AdminPanel({
                       <th>Price</th>
                       <th>Units Sold</th>
                       <th>Revenue</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -673,12 +679,17 @@ export default function AdminPanel({
                         <td className={salesCountFor(p.id) === 0 ? "status-red" : "status-green"}>
                           {salesCountFor(p.id)}
                         </td>
-                        <td>{formatPrice(revenueFor(p.id))}</td>
+                                                <td>{formatPrice(revenueFor(p.id))}</td>
+                        <td>
+                          <button className="btn btn-outline btn-sm" onClick={() => handleDeleteClick(p.id, p.name)}>
+                            Delete
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {filteredProductsShown.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="empty-state">
+                                            <tr>
+                        <td colSpan={7} className="empty-state">
                           No products match this view.
                         </td>
                       </tr>

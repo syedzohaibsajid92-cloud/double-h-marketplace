@@ -203,11 +203,20 @@ const getVendorById = async (req, res) => {
     }
 };
 
-// Update Vendor
 const updateVendor = async (req, res) => {
     try {
-
         const { id } = req.params;
+        const userId = req.user.id;
+        const isAdmin = req.user.role?.toLowerCase() === "admin";
+
+        // Ownership check: vendors can only edit their own record; admins can edit any
+        const ownerCheck = await pool.query("SELECT user_id FROM vendors WHERE id = $1", [id]);
+        if (ownerCheck.rows.length === 0) {
+            return res.status(404).json({ message: "Vendor not found" });
+        }
+        if (!isAdmin && ownerCheck.rows[0].user_id !== userId) {
+            return res.status(403).json({ message: "You can only update your own vendor profile." });
+        }
 
         const {
             business_name,
@@ -218,6 +227,7 @@ const updateVendor = async (req, res) => {
             commission_rate
         } = req.body;
 
+        // Only admins can change commission_rate
         const result = await pool.query(
             `UPDATE vendors
              SET
@@ -226,7 +236,7 @@ const updateVendor = async (req, res) => {
                 country = $3,
                 logo_url = $4,
                 website_url = $5,
-                commission_rate = $6
+                commission_rate = ${isAdmin ? "$6" : "commission_rate"}
              WHERE id = $7
              RETURNING *`,
             [
@@ -240,25 +250,14 @@ const updateVendor = async (req, res) => {
             ]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: "Vendor not found"
-            });
-        }
-
         res.status(200).json({
             message: "Vendor updated successfully",
             vendor: result.rows[0]
         });
 
     } catch (error) {
-
         console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        res.status(500).json({ message: "Server Error" });
     }
 };
 // Delete Vendor

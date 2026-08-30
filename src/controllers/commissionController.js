@@ -120,12 +120,17 @@ const getCommissionById = async (req, res) => {
 const getVendorLedger = async (req, res) => {
     try {
         const { vendor_id } = req.params;
+        const userId = req.user.id;
+        const isAdmin = req.user.role?.toLowerCase() === "admin";
 
-        if (!vendor_id) {
-            return res.status(400).json({ message: "Vendor ID is required." });
+        if (!isAdmin) {
+            // Confirm the requesting user actually owns this vendor_id
+            const ownerCheck = await pool.query("SELECT id FROM vendors WHERE id = $1 AND user_id = $2", [vendor_id, userId]);
+            if (ownerCheck.rows.length === 0) {
+                return res.status(403).json({ message: "You can only view your own vendor ledger." });
+            }
         }
 
-        // Aggregate Totals: Total Sales, Total Commission Paid, Net Earnings
         const summaryQuery = `
             SELECT 
                 COALESCE(SUM(commission_amount + vendor_earning), 0) AS total_gross_sales,
@@ -137,7 +142,6 @@ const getVendorLedger = async (req, res) => {
         `;
         const summaryResult = await pool.query(summaryQuery, [vendor_id]);
 
-        // Fetch detailed ledger history records
         const historyQuery = `
             SELECT id, order_id, commission_rate, commission_amount, vendor_earning, created_at
             FROM commissions
@@ -160,22 +164,28 @@ const getVendorLedger = async (req, res) => {
 // 6. SUBMIT WITHDRAWAL REQUEST (VENDOR)
 const requestWithdrawal = async (req, res) => {
     try {
-        const { vendor_id, amount, payout_method, account_details } = req.body;
+        const userId = req.user.id;
+        const { amount, payout_method, account_details } = req.body;
 
-        if (!vendor_id || !amount) {
-            return res.status(400).json({ message: "vendor_id and amount are required." });
+        if (!amount) {
+            return res.status(400).json({ message: "amount is required." });
         }
+
+        // Derive vendor_id from the logged-in user — never trust it from the request body
+        const vendorRes = await pool.query("SELECT id FROM vendors WHERE user_id = $1", [userId]);
+        if (vendorRes.rows.length === 0) {
+            return res.status(403).json({ message: "Vendor account not found." });
+        }
+        const vendor_id = vendorRes.rows[0].id;
 
         const requestedAmount = parseFloat(amount);
 
-        // 1. Check total earnings
         const earningsRes = await pool.query(
             "SELECT COALESCE(SUM(vendor_earning), 0) AS total_earnings FROM commissions WHERE vendor_id = $1",
             [vendor_id]
         );
         const totalEarnings = parseFloat(earningsRes.rows[0].total_earnings);
 
-        // 2. Check total already withdrawn or pending
         const withdrawalRes = await pool.query(
             "SELECT COALESCE(SUM(amount), 0) AS total_withdrawn FROM withdrawal_requests WHERE vendor_id = $1 AND status IN ('pending', 'approved')",
             [vendor_id]
@@ -184,7 +194,6 @@ const requestWithdrawal = async (req, res) => {
 
         const availableBalance = totalEarnings - totalWithdrawn;
 
-        // 3. Balance verification
         if (requestedAmount > availableBalance) {
             return res.status(400).json({
                 message: "Insufficient balance for withdrawal.",
@@ -193,7 +202,6 @@ const requestWithdrawal = async (req, res) => {
             });
         }
 
-        // 4. Create Withdrawal Request
         const newRequest = await pool.query(
             `INSERT INTO withdrawal_requests (vendor_id, amount, payout_method, account_details)
              VALUES ($1, $2, $3, $4)

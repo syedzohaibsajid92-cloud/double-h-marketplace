@@ -7,7 +7,6 @@ const { verifyToken, verifyAdmin } = require("../middleware/authMiddleware");
 const {
     getUsers,
     getUserById,
-    createUser,
     updateUser,
     deleteUser,
     getAllUsers
@@ -17,7 +16,7 @@ const {
 // PUBLIC / GENERAL ROUTES
 // ==========================================
 // Create user (Public registration / onboarding)
-router.post("/", createUser);
+
 
 // ==========================================
 // PROTECTED USER ROUTES (Authentication Required)

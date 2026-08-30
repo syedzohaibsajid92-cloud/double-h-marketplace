@@ -1,4 +1,11 @@
 const pool = require("../config/db");
+const { Resend } = require("resend");
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+function generateTrackingNumber() {
+  const random = Math.random().toString(36).substring(2, 10).toUpperCase();
+  return `PAK-${random}`;
+}
 
 // 1. PLACE ORDER (With Database Transaction & Stock Deduction)
 const placeOrder = async (req, res) => {
@@ -60,12 +67,13 @@ const placeOrder = async (req, res) => {
         // START TRANSACTION
         await client.query("BEGIN");
 
-        // Step A: Create Order
+               // Step A: Create Order (with a generated tracking number)
+        const trackingNumber = generateTrackingNumber();
         const orderResult = await client.query(
-            `INSERT INTO orders (user_id, address_id, total_amount, payment_method, status)
-             VALUES ($1, $2, $3, $4, 'pending')
+            `INSERT INTO orders (user_id, address_id, total_amount, payment_method, status, tracking_number)
+             VALUES ($1, $2, $3, $4, 'pending', $5)
              RETURNING *`,
-            [user_id, address_id, grandTotal, payment_method]
+            [user_id, address_id, grandTotal, payment_method, trackingNumber]
         );
 
         const orderId = orderResult.rows[0].id;
@@ -89,8 +97,32 @@ const placeOrder = async (req, res) => {
         // Step C: Clear User's Cart
         await client.query(`DELETE FROM cart WHERE user_id = $1`, [user_id]);
 
-        // COMMIT TRANSACTION
+                // COMMIT TRANSACTION
         await client.query("COMMIT");
+
+        // Send real order confirmation email (non-blocking — order still succeeds even if email fails)
+        try {
+            const userResult = await pool.query("SELECT email, first_name FROM users WHERE id = $1", [user_id]);
+            const customer = userResult.rows[0];
+
+            if (customer?.email) {
+                await resend.emails.send({
+                    from: "PAK Hardware <onboarding@resend.dev>",
+                    to: customer.email,
+                    subject: `Order Confirmed - Tracking #${trackingNumber}`,
+                    html: `
+                        <h2>Thanks for your order, ${customer.first_name || "there"}!</h2>
+                        <p>Your order <strong>#${orderId}</strong> has been placed successfully.</p>
+                        <p><strong>Tracking Number:</strong> ${trackingNumber}</p>
+                        <p><strong>Total:</strong> Rs. ${grandTotal}</p>
+                        <p>We'll notify you as your order progresses.</p>
+                        <p>— PAK Hardware Store</p>
+                    `,
+                });
+            }
+        } catch (emailErr) {
+            console.error("Order confirmation email failed to send:", emailErr);
+        }
 
         res.status(201).json({
             message: "Order placed successfully",
@@ -218,7 +250,30 @@ const cancelOrder = async (req, res) => {
 // 5. GET ALL ORDERS (Admin-only route)
 const getAllOrders = async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM orders ORDER BY id DESC");
+        const result = await pool.query(`
+            SELECT 
+                o.id,
+                o.status,
+                o.created_at,
+                u.first_name,
+                u.last_name,
+                u.email AS customer_email,
+                json_agg(
+                    json_build_object(
+                        'productId', oi.product_id,
+                        'name', p.name,
+                        'price', oi.price,
+                        'qty', oi.quantity,
+                        'vendorId', p.vendor_id
+                    )
+                ) AS items
+            FROM orders o
+            JOIN users u ON o.user_id = u.id
+            LEFT JOIN order_items oi ON oi.order_id = o.id
+            LEFT JOIN products p ON p.id = oi.product_id
+            GROUP BY o.id, o.status, o.created_at, u.first_name, u.last_name, u.email
+            ORDER BY o.id DESC
+        `);
         res.status(200).json(result.rows);
     } catch (error) {
         console.error(error);

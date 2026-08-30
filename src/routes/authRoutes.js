@@ -1,9 +1,19 @@
 const express = require("express");
 const router = express.Router();
+const rateLimit = require("express-rate-limit");
 
 const authController = require("../controllers/authController");
 const { googleLogin } = require("../controllers/googleAuthController");
 const { verifyToken } = require("../middleware/authMiddleware");
+
+// Limits repeated login attempts to slow down brute-force password guessing
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per IP per window
+  message: { message: "Too many login attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ==========================================
 // PUBLIC AUTH ROUTES
@@ -12,8 +22,8 @@ const { verifyToken } = require("../middleware/authMiddleware");
 // Register
 router.post("/register", authController.register);
 
-// Login
-router.post("/login", authController.login);
+// Login (rate-limited to slow brute-force attempts)
+router.post("/login", loginLimiter, authController.login);
 
 // Google OAuth Login
 router.post("/google", googleLogin);

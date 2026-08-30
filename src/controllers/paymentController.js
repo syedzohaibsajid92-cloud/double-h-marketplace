@@ -57,28 +57,40 @@ const createStripePaymentIntent = async (req, res) => {
     }
 };
 
-// 2. CONFIRM STRIPE PAYMENT & UPDATE DB
 const confirmStripePayment = async (req, res) => {
     try {
         const { order_id, payment_intent_id } = req.body;
+        const user_id = req.user.id;
 
         if (!order_id || !payment_intent_id) {
             return res.status(400).json({ message: "order_id and payment_intent_id are required." });
         }
 
+        const orderCheck = await pool.query(
+            "SELECT * FROM orders WHERE id = $1 AND user_id = $2",
+            [order_id, user_id]
+        );
+        if (orderCheck.rows.length === 0) {
+            return res.status(404).json({ message: "Order not found." });
+        }
+        const order = orderCheck.rows[0];
+
         const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent_id);
 
+        const expectedAmountInCents = Math.round(parseFloat(order.total_amount) * 100);
+        if (paymentIntent.amount !== expectedAmountInCents) {
+            return res.status(400).json({ message: "Payment amount does not match order total." });
+        }
+
         if (paymentIntent.status === "succeeded") {
-            // Update payments record status
             await pool.query(
                 "UPDATE payments SET status = 'completed' WHERE transaction_id = $1",
                 [payment_intent_id]
             );
 
-            // Update orders record status
             const orderResult = await pool.query(
-                "UPDATE orders SET status = 'processing', payment_method = 'Stripe' WHERE id = $1 RETURNING *",
-                [order_id]
+                "UPDATE orders SET status = 'processing', payment_method = 'Stripe' WHERE id = $1 AND user_id = $2 RETURNING *",
+                [order_id, user_id]
             );
 
             return res.status(200).json({
@@ -96,11 +108,19 @@ const confirmStripePayment = async (req, res) => {
     }
 };
 
-// 3. YOUR EXISTING MAKE PAYMENT (For manual/COD entries)
 const makePayment = async (req, res) => {
     try {
-        const { order_id, amount, payment_method } = req.body;
+        const { order_id, payment_method } = req.body;
         const user_id = req.user.id;
+
+        const orderResult = await pool.query(
+            "SELECT * FROM orders WHERE id = $1 AND user_id = $2",
+            [order_id, user_id]
+        );
+        if (orderResult.rows.length === 0) {
+            return res.status(404).json({ message: "Order not found." });
+        }
+        const order = orderResult.rows[0];
 
         const transaction_id = "TXN" + Date.now();
 
@@ -108,7 +128,7 @@ const makePayment = async (req, res) => {
             `INSERT INTO payments (user_id, order_id, amount, payment_method, transaction_id, status)
              VALUES ($1, $2, $3, $4, $5, 'completed')
              RETURNING *`,
-            [user_id, order_id, amount, payment_method, transaction_id]
+            [user_id, order_id, order.total_amount, payment_method, transaction_id]
         );
 
         res.status(201).json({

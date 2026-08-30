@@ -47,38 +47,26 @@ const createUser = async (req, res) => {
 // Get user by ID
 const getUserById = async (req, res) => {
     try {
-
         const { id } = req.params;
+        const isAdmin = req.user.role?.toLowerCase() === "admin";
+
+        if (!isAdmin && req.user.id !== parseInt(id)) {
+            return res.status(403).json({ message: "You can only view your own profile." });
+        }
 
         const result = await pool.query(
-            `SELECT
-                id,
-                first_name,
-                last_name,
-                email,
-                phone,
-                created_at
-             FROM users
-             WHERE id = $1`,
+            `SELECT id, first_name, last_name, email, phone, created_at FROM users WHERE id = $1`,
             [id]
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: "User not found"
-            });
+            return res.status(404).json({ message: "User not found" });
         }
 
         res.status(200).json(result.rows[0]);
-
     } catch (error) {
-
         console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        res.status(500).json({ message: "Server Error" });
     }
 };
 // Admin - Get all users
@@ -107,11 +95,14 @@ const getAllUsers = async (req, res) => {
         });
     }
 };
-// Update user
 const updateUser = async (req, res) => {
     try {
-
         const { id } = req.params;
+        const isAdmin = req.user.role?.toLowerCase() === "admin";
+
+        if (!isAdmin && req.user.id !== parseInt(id)) {
+            return res.status(403).json({ message: "You can only update your own profile." });
+        }
 
         const {
             first_name,
@@ -129,34 +120,20 @@ const updateUser = async (req, res) => {
                 phone = $4
              WHERE id = $5
              RETURNING id, first_name, last_name, email, phone, created_at`,
-            [
-                first_name,
-                last_name,
-                email,
-                phone,
-                id
-            ]
+            [first_name, last_name, email, phone, id]
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: "User not found"
-            });
+            return res.status(404).json({ message: "User not found" });
         }
 
         res.status(200).json({
             message: "User updated successfully",
             user: result.rows[0]
         });
-
     } catch (error) {
-
         console.error(error);
-
-        res.status(500).json({
-            message: "Server Error"
-        });
-
+        res.status(500).json({ message: "Server Error" });
     }
 };
 // Delete user
@@ -196,7 +173,6 @@ const deleteUser = async (req, res) => {
 module.exports = {
     getUsers,
     getUserById,
-    createUser,
     updateUser,
     deleteUser,
     getAllUsers

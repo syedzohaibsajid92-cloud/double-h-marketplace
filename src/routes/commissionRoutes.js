@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { verifyToken, verifyAdmin } = require("../middleware/authMiddleware");
 
 const {
     calculateOrderCommission,
@@ -12,22 +13,13 @@ const {
     getCommissionReports
 } = require("../controllers/commissionController");
 
-// 1. Commission & Payout Reports (Task 4)
-router.get("/reports", getCommissionReports);
-
-// 2. Commission Calculation Engine
-router.post("/calculate", calculateOrderCommission);
-
-// 3. Vendor Earnings Ledger
-router.get("/vendor/:vendor_id/ledger", getVendorLedger);
-
-// 4. Withdrawal Workflow
-router.post("/withdraw", requestWithdrawal);
-router.patch("/withdraw/:id/status", updateWithdrawalStatus);
-
-// 5. Commission CRUD
-router.post("/", createCommission);
-router.get("/", getCommissions);
-router.get("/:id", getCommissionById);
+router.get("/reports", verifyAdmin, getCommissionReports);
+router.post("/calculate", verifyAdmin, calculateOrderCommission);
+router.get("/vendor/:vendor_id/ledger", verifyToken, getVendorLedger);
+router.post("/withdraw", verifyToken, requestWithdrawal);
+router.patch("/withdraw/:id/status", verifyAdmin, updateWithdrawalStatus);
+router.post("/", verifyAdmin, createCommission);
+router.get("/", verifyAdmin, getCommissions);
+router.get("/:id", verifyAdmin, getCommissionById);
 
 module.exports = router;

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 // Destructure verifyToken from authMiddleware
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, verifyAdmin } = require("../middleware/authMiddleware");
 
 const {
     createStripePaymentIntent,
@@ -15,6 +15,6 @@ const {
 router.post("/create-intent", verifyToken, createStripePaymentIntent);
 router.post("/confirm", verifyToken, confirmStripePayment);
 router.post("/process", verifyToken, makePayment);
-router.get("/history", verifyToken, getPaymentHistory);
+router.get("/history", verifyAdmin, getPaymentHistory);
 
 module.exports = router;

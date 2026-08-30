@@ -263,24 +263,17 @@ const updateProduct = async (req, res) => {
 // 5. DELETE PRODUCT (Vendor Owner Only)
 const deleteProduct = async (req, res) => {
     try {
-        const userId = req.user.id;
         const { id } = req.params;
 
-        const vendorResult = await pool.query("SELECT id FROM vendors WHERE user_id = $1", [userId]);
-        if (vendorResult.rows.length === 0) {
-            return res.status(403).json({ message: "Vendor account not found." });
-        }
-        const vendorId = vendorResult.rows[0].id;
-
+        // This route is already admin-only (verifyAdmin in productRoutes.js),
+        // so no ownership check is needed here — admin can delete any product.
         const result = await pool.query(
-            "DELETE FROM products WHERE id = $1 AND vendor_id = $2 RETURNING *",
-            [id, vendorId]
+            "DELETE FROM products WHERE id = $1 RETURNING *",
+            [id]
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                message: "Product not found or you are not authorized to delete this product."
-            });
+            return res.status(404).json({ message: "Product not found." });
         }
 
         res.status(200).json({

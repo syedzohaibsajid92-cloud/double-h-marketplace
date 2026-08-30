@@ -19,10 +19,10 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "double_h_secret_key"
-    );
+   if (!process.env.JWT_SECRET) {
+  return res.status(500).json({ message: "Server misconfigured." });
+}
+const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     req.user = decoded;
     next();

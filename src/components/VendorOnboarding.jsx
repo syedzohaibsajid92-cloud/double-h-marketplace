@@ -111,7 +111,7 @@ export default function VendorOnboarding({
         content: base64,
       };
       console.log(payload);
-      setVerification({ ...verification, verificationDocument: payload });
+      setVerification((prev) => ({ ...prev, verification_document_url: base64 }));
     };
 
     reader.onerror = (error) => {

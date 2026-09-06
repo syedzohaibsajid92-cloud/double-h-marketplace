@@ -52,7 +52,7 @@ export default function ProductDetailPage({
       </nav>
 
       <div className="detail-grid">
-        <div className="detail-image" style={{ overflow: "hidden", cursor: "pointer" }}>
+        <div className="detail-image" style={{ overflow: "hidden", cursor: "pointer", maxHeight: "500px" }}>
   {(product.image || product.image_url) ? (
     <img
       src={product.image || product.image_url}

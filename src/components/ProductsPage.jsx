@@ -28,6 +28,7 @@ export default function ProductsPage({
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortBy, setSortBy] = useState("featured");
+  const [viewMode, setViewMode] = useState("grid"); // "grid" or "list"
   const [priceBuckets, setPriceBuckets] = useState([]); // array of bucket keys
   const [selectedVendors, setSelectedVendors] = useState([]); // array of brand names
   const categoryNames = categories.map((c) => c.name);
@@ -199,13 +200,29 @@ export default function ProductsPage({
                 ))}
               </select>
             </div>
+            <div className="view-toggle">
+  <button
+    className={`view-toggle-btn ${viewMode === "grid" ? "active" : ""}`}
+    onClick={() => setViewMode("grid")}
+    aria-label="Grid view"
+  >
+    Grid
+  </button>
+  <button
+    className={`view-toggle-btn ${viewMode === "list" ? "active" : ""}`}
+    onClick={() => setViewMode("list")}
+    aria-label="List view"
+  >
+    List
+  </button>
+</div>
           </div>
         </div>
 
         {visibleProducts.length === 0 ? (
           <p className="empty-state">No products match your search.</p>
         ) : (
-          <div className="product-grid">
+          <div className={viewMode === "grid" ? "product-grid" : "product-list"}>
             {visibleProducts.map((p) => (
               <button
                 key={p.id}

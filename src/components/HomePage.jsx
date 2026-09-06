@@ -43,9 +43,9 @@ const CATEGORY_ICONS = {
 };
 
 const HERO_SLIDES = [
-  { title: "Welcome to PAK Hardware Store", subtitle: "Genuine imported tools, shipping across Pakistan" },
-  { title: "Quality You Can Trust", subtitle: "Verified vendors, CNIC-checked, ready to deliver" },
-  { title: "Fast, Reliable Delivery", subtitle: "Free shipping nationwide on orders over Rs. 5,000" },
+  { title: "Genuine Imported Tools", subtitle: "Trusted brands, sourced directly, delivered across Pakistan" },
+  { title: "Quality You Can Trust", subtitle: "Every vendor CNIC-verified — buy with confidence" },
+  { title: "Shipping Nationwide", subtitle: "Free delivery across Pakistan on orders over Rs. 5,000" },
 ];
 
 const STATS = [

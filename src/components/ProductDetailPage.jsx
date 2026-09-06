@@ -27,6 +27,8 @@ export default function ProductDetailPage({
   const [selectedVariant, setSelectedVariant] = useState(product.variants[0] || null);
   const [added, setAdded] = useState(false);
 
+  const [imageEnlarged, setImageEnlarged] = useState(false);
+
   const related = relatedProducts
     .filter((p) => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
@@ -50,12 +52,13 @@ export default function ProductDetailPage({
       </nav>
 
       <div className="detail-grid">
-        <div className="detail-image" style={{ overflow: "hidden" }}>
+        <div className="detail-image" style={{ overflow: "hidden", cursor: "pointer" }}>
   {(product.image || product.image_url) ? (
     <img
       src={product.image || product.image_url}
       alt={product.name}
       style={{ width: "100%", height: "100%", objectFit: "cover" }}
+      onClick={() => setImageEnlarged(true)}
     />
   ) : (
     <Wrench size={72} />
@@ -184,6 +187,27 @@ export default function ProductDetailPage({
           )}
         </div>
       </section>
+      {imageEnlarged && (product.image || product.image_url) && (
+  <div
+    onClick={() => setImageEnlarged(false)}
+    style={{
+      position: "fixed",
+      top: 0, left: 0, right: 0, bottom: 0,
+      background: "rgba(0,0,0,0.85)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1000,
+      cursor: "zoom-out",
+    }}
+  >
+    <img
+      src={product.image || product.image_url}
+      alt={product.name}
+      style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
+    />
+  </div>
+)}
     </div>
   );
 }

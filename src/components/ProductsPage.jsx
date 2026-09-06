@@ -38,8 +38,8 @@ export default function ProductsPage({
   );
 
   function togglePriceBucket(key) {
-    setPriceBuckets((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
-  }
+  setPriceBuckets((prev) => (prev.includes(key) ? [] : [key]));
+}
 
   function toggleVendor(name) {
     setSelectedVendors((prev) => (prev.includes(name) ? prev.filter((v) => v !== name) : [...prev, name]));

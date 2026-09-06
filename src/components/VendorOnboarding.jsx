@@ -96,10 +96,11 @@ export default function VendorOnboarding({
 
     if (!file) return;
 
-    if (file.type !== "application/pdf") {
-      alert("Only PDF files are allowed.");
-      return;
-    }
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+if (!allowedTypes.includes(file.type)) {
+  alert("Only PDF, JPG, or PNG files are allowed.");
+  return;
+}
 
     const reader = new FileReader();
     reader.onload = async () => {
@@ -107,7 +108,7 @@ export default function VendorOnboarding({
 
       const base64 = reader.result.split(",")[1];
       const payload = {
-        type: "application/pdf",
+        type: file.type,
         content: base64,
       };
       console.log(payload);
@@ -357,7 +358,7 @@ export default function VendorOnboarding({
                 <input
                   type="file"
                   placeholder="cnic-front-back.pdf"
-                  accept=".pdf,application/pdf"
+                  accept=".pdf,application/pdf,.jpg,.jpeg,.png,image/jpeg,image/png"
                   onChange={onVericiationDocumentUpload}
                 />
                 {verificationErrors.verification_document_url && (

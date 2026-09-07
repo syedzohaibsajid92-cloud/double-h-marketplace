@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { SlidersHorizontal, Home, ChevronRight, Wrench, X } from "lucide-react";
+import { SlidersHorizontal, Home, ChevronRight, Wrench, X, ShoppingCart, Check } from "lucide-react";
 import { formatPriceWithUnit } from "../data/products";
 import Stars from "./Stars";
 
@@ -24,6 +24,7 @@ export default function ProductsPage({
   activeCategory,
   onCategoryFilter,
   onProductClick,
+  onAddToCart,
   onGoHome,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -31,7 +32,15 @@ export default function ProductsPage({
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "list"
   const [priceBuckets, setPriceBuckets] = useState([]); // array of bucket keys
   const [selectedVendors, setSelectedVendors] = useState([]); // array of brand names
+  const [addedId, setAddedId] = useState(null);
   const categoryNames = categories.map((c) => c.name);
+
+  function handleQuickAdd(e, productId) {
+    e.stopPropagation();
+    onAddToCart(productId);
+    setAddedId(productId);
+    setTimeout(() => setAddedId((cur) => (cur === productId ? null : cur)), 1500);
+  }
 
   const vendorNames = useMemo(
     () => [...new Set(products.map((p) => p.brand).filter(Boolean))].sort(),
@@ -224,10 +233,15 @@ export default function ProductsPage({
         ) : (
           <div className={viewMode === "grid" ? "product-grid" : "product-list"}>
             {visibleProducts.map((p) => (
-              <button
+                        <div
                 key={p.id}
                 className="product-card"
+                role="button"
+                tabIndex={0}
                 onClick={() => onProductClick(p.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") onProductClick(p.id);
+                }}
               >
                 <span className="thumb">
   {p.image_url ? (
@@ -247,10 +261,25 @@ export default function ProductsPage({
     style={{ display: p.image_url ? "none" : "flex" }}
   />
 </span>
-                <span className="product-name">{p.name}</span>
+                          <span className="product-name">{p.name}</span>
                 <Stars rating={p.rating} />
                 <span className="product-price">{formatPriceWithUnit(p.price, p.unit)}</span>
-              </button>
+                <button
+                  className="btn btn-primary btn-sm quick-add-btn"
+                  onClick={(e) => handleQuickAdd(e, p.id)}
+                  disabled={!p.inStock}
+                >
+                  {addedId === p.id ? (
+                    <>
+                      <Check size={14} /> Added
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={14} /> Add to Cart
+                    </>
+                  )}
+                </button>
+              </div>
             ))}
           </div>
         )}

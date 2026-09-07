@@ -679,6 +679,13 @@ body {
   font-size: 19px;
   margin-top: 4px;
 }
+.product-card .quick-add-btn {
+  margin-top: 6px;
+  width: 100%;
+  justify-content: center;
+  font-size: 13px;
+  padding: 8px 10px;
+}
 .add-to-cart-pill {
   margin-top: 8px;
   background: #e8792c;

@@ -12,6 +12,8 @@ import {
   Headset,
   ArrowRight,
   X,
+  ShoppingCart,
+  Check,
 } from "lucide-react";
 import { formatPriceWithUnit } from "../data/products";
 import Stars from "./Stars";
@@ -107,6 +109,7 @@ export default function HomePage({
   onShopNow,
   onCategoryClick,
   onProductClick,
+  onAddToCart,
   onSupportClick,
   isGuest,
 }) {
@@ -114,6 +117,14 @@ export default function HomePage({
 
     const [showWelcome, setShowWelcome] = useState(true);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [addedId, setAddedId] = useState(null);
+
+  function handleQuickAdd(e, productId) {
+    e.stopPropagation();
+    onAddToCart(productId);
+    setAddedId(productId);
+    setTimeout(() => setAddedId((cur) => (cur === productId ? null : cur)), 1500);
+  }
 
   useEffect(() => {
     const rotate = setInterval(() => {
@@ -306,11 +317,16 @@ export default function HomePage({
           {products.slice(0, 8).map((p) => {
             const imgSource = p.image || p.image_url;
 
-            return (
-              <button
+               return (
+              <div
                 key={p.id}
                 className="product-card"
+                role="button"
+                tabIndex={0}
                 onClick={() => onProductClick(p.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") onProductClick(p.id);
+                }}
                 style={{ overflow: "hidden" }}
               >
                 <span
@@ -338,7 +354,22 @@ export default function HomePage({
                 <span className="product-name">{p.name}</span>
                 <Stars rating={p.rating} />
                 <span className="product-price">{formatPriceWithUnit(p.price, p.unit)}</span>
-              </button>
+                <button
+                  className="btn btn-primary btn-sm quick-add-btn"
+                  onClick={(e) => handleQuickAdd(e, p.id)}
+                  disabled={!p.inStock}
+                >
+                  {addedId === p.id ? (
+                    <>
+                      <Check size={14} /> Added
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={14} /> Add to Cart
+                    </>
+                  )}
+                </button>
+              </div>
             );
           })}
              </div>

@@ -577,6 +577,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
               onShopNow={handleShopNow}
               onCategoryClick={handleCategoryClick}
               onProductClick={handleProductClick}
+              onAddToCart={handleAddToCart}
               onSupportClick={goToSupport}
               isGuest={!currentUser}
             />
@@ -590,6 +591,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
               activeCategory={activeCategory}
               onCategoryFilter={setActiveCategory}
               onProductClick={handleProductClick}
+              onAddToCart={handleAddToCart}
               onGoHome={goHome}
             />
           )}

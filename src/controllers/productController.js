@@ -143,7 +143,8 @@ const createProduct = async (req, res) => {
             discount,
             category_id,
             image_url,
-            specifications
+            specifications,
+            unit
         } = req.body;
 
         if (!name || !price || stock === undefined) {
@@ -154,8 +155,8 @@ const createProduct = async (req, res) => {
 
         const newProduct = await pool.query(
             `INSERT INTO products 
-                (vendor_id, category_id, name, description, brand, sku, price, stock, discount, image_url, specifications, approval_status, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', 'active')
+                (vendor_id, category_id, name, description, brand, sku, price, stock, discount, image_url, specifications, unit, approval_status, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', 'active')
              RETURNING *`,
             [
                 vendorId,
@@ -168,7 +169,8 @@ const createProduct = async (req, res) => {
                 stock,
                 discount || 0.00,
                 image_url || null,
-                specifications ? JSON.stringify(specifications) : '{}'
+                specifications ? JSON.stringify(specifications) : '{}',
+                unit || 'piece'
             ]
         );
 
@@ -207,7 +209,8 @@ const updateProduct = async (req, res) => {
             stock,
             discount,
             image_url,
-            specifications
+            specifications,
+            unit
         } = req.body;
 
         const result = await pool.query(
@@ -223,8 +226,9 @@ const updateProduct = async (req, res) => {
                 discount = COALESCE($8, discount),
                 image_url = COALESCE($9, image_url),
                 specifications = COALESCE($10, specifications),
+                unit = COALESCE($11, unit),
                 updated_at = NOW()
-             WHERE id = $11 AND vendor_id = $12
+             WHERE id = $12 AND vendor_id = $13
              RETURNING *`,
             [
                 category_id || null,
@@ -237,6 +241,7 @@ const updateProduct = async (req, res) => {
                 discount !== undefined ? discount : null,
                 image_url || null,
                 specifications ? JSON.stringify(specifications) : null,
+                unit || null,
                 id,
                 vendorId
             ]

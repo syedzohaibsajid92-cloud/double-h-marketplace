@@ -1,0 +1,88 @@
+diff --git a/migrations/2026_09_add_unit_to_products.sql b/migrations/2026_09_add_unit_to_products.sql
+new file mode 100644
+index 0000000..a56ac88
+--- /dev/null
++++ b/migrations/2026_09_add_unit_to_products.sql
+@@ -0,0 +1,18 @@
++-- Adds a "selling unit" to products (piece, kg, bag, sqft, set, length)
++-- so vendors can specify how a product is sold and customers can see it
++-- alongside price on the product listing/detail pages.
++--
++-- Run manually against the production DB, e.g.:
++--   psql "$DATABASE_URL" -f migrations/2026_09_add_unit_to_products.sql
++
++ALTER TABLE products
++  ADD COLUMN IF NOT EXISTS unit VARCHAR(20) NOT NULL DEFAULT 'piece';
++
++-- Optional: constrain to the known set of units. Comment out if you'd
++-- rather keep this open-ended for now.
++ALTER TABLE products
++  DROP CONSTRAINT IF EXISTS products_unit_check;
++
++ALTER TABLE products
++  ADD CONSTRAINT products_unit_check
++  CHECK (unit IN ('piece', 'kg', 'bag', 'sqft', 'set', 'length'));
+diff --git a/src/controllers/productController.js b/src/controllers/productController.js
+index 4247a20..9b4079a 100644
+--- a/src/controllers/productController.js
++++ b/src/controllers/productController.js
+@@ -143,7 +143,8 @@ const createProduct = async (req, res) => {
+             discount,
+             category_id,
+             image_url,
+-            specifications
++            specifications,
++            unit
+         } = req.body;
+ 
+         if (!name || !price || stock === undefined) {
+@@ -154,8 +155,8 @@ const createProduct = async (req, res) => {
+ 
+         const newProduct = await pool.query(
+             `INSERT INTO products 
+-                (vendor_id, category_id, name, description, brand, sku, price, stock, discount, image_url, specifications, approval_status, status)
+-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', 'active')
++                (vendor_id, category_id, name, description, brand, sku, price, stock, discount, image_url, specifications, unit, approval_status, status)
++             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', 'active')
+              RETURNING *`,
+             [
+                 vendorId,
+@@ -168,7 +169,8 @@ const createProduct = async (req, res) => {
+                 stock,
+                 discount || 0.00,
+                 image_url || null,
+-                specifications ? JSON.stringify(specifications) : '{}'
++                specifications ? JSON.stringify(specifications) : '{}',
++                unit || 'piece'
+             ]
+         );
+ 
+@@ -207,7 +209,8 @@ const updateProduct = async (req, res) => {
+             stock,
+             discount,
+             image_url,
+-            specifications
++            specifications,
++            unit
+         } = req.body;
+ 
+         const result = await pool.query(
+@@ -223,8 +226,9 @@ const updateProduct = async (req, res) => {
+                 discount = COALESCE($8, discount),
+                 image_url = COALESCE($9, image_url),
+                 specifications = COALESCE($10, specifications),
++                unit = COALESCE($11, unit),
+                 updated_at = NOW()
+-             WHERE id = $11 AND vendor_id = $12
++             WHERE id = $12 AND vendor_id = $13
+              RETURNING *`,
+             [
+                 category_id || null,
+@@ -237,6 +241,7 @@ const updateProduct = async (req, res) => {
+                 discount !== undefined ? discount : null,
+                 image_url || null,
+                 specifications ? JSON.stringify(specifications) : null,
++                unit || null,
+                 id,
+                 vendorId
+             ]

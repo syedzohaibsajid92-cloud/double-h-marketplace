@@ -19,7 +19,7 @@ import {
   Search,
 } from "lucide-react";
 import logo from "../assets/logo.jpeg";
-import { formatPrice } from "../data/products";
+import { formatPrice, SELLING_UNITS, unitLabel } from "../data/products";
 import { ORDER_STATUSES, MONTH_NAMES } from "../data/orders";
 
 const SIDEBAR_ITEMS = [
@@ -49,6 +49,7 @@ const EMPTY_PRODUCT_FORM = {
   description: "",
   price: "",
   stock: "",
+  unit: "piece",
   category: "",
   image_url: "",
 };
@@ -203,8 +204,9 @@ export default function VendorDashboard({
     setProductForm({
       name: product.name,
       description: product.description || "",
-      price: product.price,
+          price: product.price,
       stock: product.stock,
+      unit: product.unit || "piece",
       category: product.category,
       image_url: product.image_url || "",
     });
@@ -220,7 +222,8 @@ export default function VendorDashboard({
         name: productForm.name,
         description: productForm.description,
         price: Number(productForm.price),
-        stock: Number(productForm.stock),
+              stock: Number(productForm.stock),
+        unit: productForm.unit,
         category: productForm.category,
         image_url: productForm.image_url,
       });
@@ -476,7 +479,7 @@ export default function VendorDashboard({
                         required
                       />
                     </label>
-                    <label className="auth-field">
+                                        <label className="auth-field">
                       <span>Stock</span>
                       <input
                         type="number"
@@ -487,6 +490,20 @@ export default function VendorDashboard({
                       />
                     </label>
                   </div>
+
+                  <label className="auth-field">
+                    <span>Selling Unit</span>
+                    <select
+                      value={productForm.unit}
+                      onChange={(e) => setProductForm((p) => ({ ...p, unit: e.target.value }))}
+                    >
+                      {SELLING_UNITS.map((u) => (
+                        <option key={u.value} value={u.value}>
+                          {u.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
                   <label className="auth-field">
                     <span>Image URL (optional)</span>
@@ -558,8 +575,9 @@ export default function VendorDashboard({
                         <tr key={p.id}>
                           <td>{p.name}</td>
                           <td className="truncate-cell">{p.description || "—"}</td>
-                          <td>{p.category}</td>
+                                                    <td>{p.category}</td>
                           <td>{formatPrice(p.price)}</td>
+                          <td>{unitLabel(p.unit)}</td>
                           <td className={p.stock === 0 ? "status-red" : ""}>{p.stock}</td>
                           <td>
                             <button className="btn btn-outline btn-sm" onClick={() => openEditForm(p)}>

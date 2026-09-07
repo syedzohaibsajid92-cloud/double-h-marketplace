@@ -356,7 +356,8 @@ async function handleDeleteProduct(productId) {
         category_id: category ? category.id : null,
         image_url: productData.image_url || "",
         brand: myVendor.business_name,
-        sku: `${myVendor.business_name.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-5)}`,
+               sku: `${myVendor.business_name.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-5)}`,
+        unit: productData.unit || "piece",
       });
       await refreshVendorProducts();
       await loadCatalog();

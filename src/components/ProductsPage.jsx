@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { SlidersHorizontal, Home, ChevronRight, Wrench, X } from "lucide-react";
-import { formatPrice } from "../data/products";
+import { formatPriceWithUnit } from "../data/products";
 import Stars from "./Stars";
 
 const PRICE_BUCKETS = [
@@ -249,7 +249,7 @@ export default function ProductsPage({
 </span>
                 <span className="product-name">{p.name}</span>
                 <Stars rating={p.rating} />
-                <span className="product-price">{formatPrice(p.price)}</span>
+                <span className="product-price">{formatPriceWithUnit(p.price, p.unit)}</span>
               </button>
             ))}
           </div>

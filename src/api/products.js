@@ -7,10 +7,10 @@ export async function fetchProducts(params = {}) {
   return (res.products || []).map(adaptProduct);
 }
 
-export async function createProduct({ name, description, brand, sku, price, stock, category_id, image_url }) {
+export async function createProduct({ name, description, brand, sku, price, stock, category_id, image_url, unit }) {
   const res = await api.post(
     "/api/products",
-    { name, description, brand, sku, price, stock, category_id, image_url },
+    { name, description, brand, sku, price, stock, category_id, image_url, unit },
     { auth: true }
   );
   return adaptProduct(res.product);

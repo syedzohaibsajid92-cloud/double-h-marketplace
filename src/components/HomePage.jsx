@@ -13,7 +13,7 @@ import {
   ArrowRight,
   X,
 } from "lucide-react";
-import { formatPrice } from "../data/products";
+import { formatPriceWithUnit } from "../data/products";
 import Stars from "./Stars";
 
 // Preset image mapping for category cards
@@ -337,7 +337,7 @@ export default function HomePage({
                 </span>
                 <span className="product-name">{p.name}</span>
                 <Stars rating={p.rating} />
-                <span className="product-price">{formatPrice(p.price)}</span>
+                <span className="product-price">{formatPriceWithUnit(p.price, p.unit)}</span>
               </button>
             );
           })}

@@ -273,3 +273,23 @@ export const SEED_PRODUCTS = [
 export function formatPrice(n) {
   return `Rs. ${Number(n || 0).toLocaleString("en-PK")}`;
 }
+// Selling units a vendor can price a product by. Keep in sync with the
+// `products_unit_check` constraint in migrations/2026_09_add_unit_to_products.sql.
+export const SELLING_UNITS = [
+  { value: "piece", label: "Piece" },
+  { value: "kg", label: "Kg" },
+  { value: "bag", label: "Bag" },
+  { value: "sqft", label: "Sqft" },
+  { value: "set", label: "Set" },
+  { value: "length", label: "Length" },
+];
+
+export function unitLabel(unit) {
+  const match = SELLING_UNITS.find((u) => u.value === unit);
+  return match ? match.label : "Piece";
+}
+
+// e.g. "Rs. 1,500 / Bag"
+export function formatPriceWithUnit(price, unit) {
+  return `${formatPrice(price)} / ${unitLabel(unit)}`;
+}

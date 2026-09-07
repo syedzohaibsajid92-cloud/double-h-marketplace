@@ -10,7 +10,7 @@ import {
   ShoppingCart,
   Check,
 } from "lucide-react";
-import { formatPrice } from "../data/products";
+import { formatPriceWithUnit } from "../data/products";
 import Stars from "./Stars";
 
 export default function ProductDetailPage({
@@ -71,7 +71,7 @@ export default function ProductDetailPage({
             <Stars rating={product.rating} />
             <span className="review-count">({product.reviewCount} reviews)</span>
           </div>
-          <div className="price">{formatPrice(product.price)}</div>
+          <div className="price">{formatPriceWithUnit(product.price, product.unit)}</div>
           <div className="vendor">Vendor: {vendor ? vendor.business_name : product.brand}</div>
           <div className={`stock ${product.inStock ? "" : "out"}`}>
             Stock: {product.inStock ? "In Stock" : "Out of Stock"} (SKU: {product.sku})

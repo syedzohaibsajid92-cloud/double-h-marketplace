@@ -52,6 +52,7 @@ const EMPTY_PRODUCT_FORM = {
   unit: "piece",
   category: "",
   image_url: "",
+  extraImages: [],
 };
 
 function monthKey(dateStr) {
@@ -200,39 +201,62 @@ export default function VendorDashboard({
     setFormOpen(true);
   }
 
-  function openEditForm(product) {
+   function openEditForm(product) {
     setProductForm({
       name: product.name,
       description: product.description || "",
-          price: product.price,
+      price: product.price,
       stock: product.stock,
       unit: product.unit || "piece",
       category: product.category,
       image_url: product.image_url || "",
+      extraImages: product.extraImages && product.extraImages.length > 0 ? product.extraImages : [],
     });
     setEditingId(product.id);
     setFormOpen(true);
   }
 
-  function handleProductFormSubmit(e) {
+    function handleProductFormSubmit(e) {
     e.preventDefault();
     if (!productForm.name.trim() || productForm.price === "" || productForm.stock === "") return;
+    const cleanExtraImages = (productForm.extraImages || []).map((u) => u.trim()).filter(Boolean);
     if (editingId) {
       onUpdateProduct(editingId, {
         name: productForm.name,
         description: productForm.description,
         price: Number(productForm.price),
-              stock: Number(productForm.stock),
+        stock: Number(productForm.stock),
         unit: productForm.unit,
         category: productForm.category,
         image_url: productForm.image_url,
+        extra_images: cleanExtraImages,
       });
     } else {
-      onAddProduct(productForm);
+      onAddProduct({ ...productForm, extraImages: cleanExtraImages });
     }
     setFormOpen(false);
     setProductForm(EMPTY_PRODUCT_FORM);
     setEditingId(null);
+  }
+
+  function addExtraImageField() {
+    setProductForm((p) => ({ ...p, extraImages: [...(p.extraImages || []), ""] }));
+  }
+
+  function updateExtraImageField(index, value) {
+    setProductForm((p) => {
+      const next = [...(p.extraImages || [])];
+      next[index] = value;
+      return { ...p, extraImages: next };
+    });
+  }
+
+  function removeExtraImageField(index) {
+    setProductForm((p) => {
+      const next = [...(p.extraImages || [])];
+      next.splice(index, 1);
+      return { ...p, extraImages: next };
+    });
   }
 
   // ---- Sales report: previous full calendar year ------------------------
@@ -513,6 +537,36 @@ export default function VendorDashboard({
                       onChange={(e) => setProductForm((p) => ({ ...p, image_url: e.target.value }))}
                     />
                   </label>
+
+                  <div className="auth-field">
+                    <span>Additional photos (optional) — from different angles</span>
+                    {(productForm.extraImages || []).map((url, i) => (
+                      <div key={i} style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
+                        <input
+                          type="text"
+                          placeholder="Image URL"
+                          value={url}
+                          onChange={(e) => updateExtraImageField(i, e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => removeExtraImageField(i)}
+                          aria-label="Remove photo"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={addExtraImageField}
+                    >
+                      <Plus size={14} /> Add another photo
+                    </button>
+                  </div>
 
                   <div className="onboarding-nav">
                     <button type="button" className="btn btn-outline" onClick={() => setFormOpen(false)}>

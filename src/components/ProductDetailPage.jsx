@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Home,
   ChevronRight,
@@ -29,6 +29,17 @@ export default function ProductDetailPage({
 
   const [imageEnlarged, setImageEnlarged] = useState(false);
 
+  const galleryImages = [product.image || product.image_url, ...(product.extraImages || [])].filter(
+    Boolean
+  );
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [product.id]);
+
+  const activeImage = galleryImages[activeImageIndex];
+
   const related = relatedProducts
     .filter((p) => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
@@ -52,10 +63,11 @@ export default function ProductDetailPage({
       </nav>
 
       <div className="detail-grid">
-        <div className="detail-image" style={{ overflow: "hidden", cursor: "pointer", maxHeight: "500px" }}>
-  {(product.image || product.image_url) ? (
+        <div>
+          <div className="detail-image" style={{ overflow: "hidden", cursor: "pointer", maxHeight: "500px" }}>
+  {activeImage ? (
     <img
-      src={product.image || product.image_url}
+      src={activeImage}
       alt={product.name}
       style={{ width: "100%", height: "100%", objectFit: "cover" }}
       onClick={() => setImageEnlarged(true)}
@@ -64,6 +76,31 @@ export default function ProductDetailPage({
     <Wrench size={72} />
   )}
 </div>
+          {galleryImages.length > 1 && (
+            <div className="detail-thumb-row" style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+              {galleryImages.map((src, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveImageIndex(i)}
+                  style={{
+                    width: "64px",
+                    height: "64px",
+                    padding: 0,
+                    borderRadius: "6px",
+                    overflow: "hidden",
+                    border: i === activeImageIndex ? "2px solid #e8792c" : "1px solid #2b2b2b",
+                    cursor: "pointer",
+                    background: "#1e1e1e",
+                    flexShrink: 0,
+                  }}
+                  aria-label={`View photo ${i + 1}`}
+                >
+                  <img src={src} alt={`${product.name} ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="detail-info">
           <h1>{product.name}</h1>
@@ -187,7 +224,7 @@ export default function ProductDetailPage({
           )}
         </div>
       </section>
-      {imageEnlarged && (product.image || product.image_url) && (
+      {imageEnlarged && activeImage && (
   <div
     onClick={() => setImageEnlarged(false)}
     style={{
@@ -202,7 +239,7 @@ export default function ProductDetailPage({
     }}
   >
     <img
-      src={product.image || product.image_url}
+      src={activeImage}
       alt={product.name}
       style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
     />

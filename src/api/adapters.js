@@ -60,6 +60,7 @@ export function adaptProduct(p) {
     category_id: p.category_id,
     image_url: p.image_url || "",
     image: p.image_url || "",
+    extraImages: Array.isArray(p.extra_images) ? p.extra_images : [],
         brand: p.brand || p.vendor_name || "",
     sku: p.sku || "",
     unit: p.unit || "piece",

@@ -10,8 +10,9 @@ import {
   Mail,
   FileWarning,
   CheckCircle2,
+  MessageCircle,
 } from "lucide-react";
-import { QUICK_TOPICS, answerFor, answerForTopic } from "../data/faq";
+import { QUICK_TOPICS, answerFor, answerForTopic, FALLBACK_REPLY, WHATSAPP_LINK, WHATSAPP_NUMBER_DISPLAY } from "../data/faq";
 
 const WELCOME_MESSAGE = {
   from: "bot",
@@ -39,7 +40,10 @@ export default function CustomerService({ onBack, onSubmitTicket }) {
   function pushBotReply(replyText) {
     setIsTyping(true);
     setTimeout(() => {
-      setMessages((prev) => [...prev, { from: "bot", text: replyText }]);
+      setMessages((prev) => [
+        ...prev,
+        { from: "bot", text: replyText, showWhatsApp: replyText === FALLBACK_REPLY },
+      ]);
       setIsTyping(false);
     }, 550);
   }
@@ -93,7 +97,21 @@ export default function CustomerService({ onBack, onSubmitTicket }) {
                 <span className="chat-avatar">
                   {m.from === "bot" ? <Bot size={16} /> : <User size={16} />}
                 </span>
-                <p className="chat-bubble">{m.text}</p>
+                <div>
+                  <p className="chat-bubble">{m.text}</p>
+                  {m.showWhatsApp && (
+                    
+                    <a
+                      href={WHATSAPP_LINK}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary btn-sm"
+                      style={{ marginTop: "8px", display: "inline-flex" }}
+                    >
+                      <MessageCircle size={14} /> Chat on WhatsApp
+                    </a>
+                  )}
+                </div>
               </div>
             ))}
 
@@ -199,6 +217,11 @@ export default function CustomerService({ onBack, onSubmitTicket }) {
               </li>
               <li>
                 <Mail size={14} /> support@pakhardware.pk
+              </li>
+              <li>
+                <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <MessageCircle size={14} /> WhatsApp: {WHATSAPP_NUMBER_DISPLAY}
+                </a>
               </li>
             </ul>
           </div>

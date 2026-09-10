@@ -86,8 +86,13 @@ export const FAQ_ENTRIES = [
   },
 ];
 
-const FALLBACK_REPLY =
-  "I didn't quite catch that. Try asking about order tracking, shipping, returns, payments, warranty, becoming a vendor, or your account — or tap a topic below.";
+export const FALLBACK_REPLY =
+  "I didn't quite catch that. Try asking about order tracking, shipping, returns, payments, warranty, becoming a vendor, or your account — or tap a topic below. If none of that helps, you can also message us directly on WhatsApp.";
+
+export const WHATSAPP_NUMBER_DISPLAY = "0316-5001929";
+export const WHATSAPP_LINK =
+  "https://wa.me/923165001929?text=" +
+  encodeURIComponent("Hi, I need help with something on PAK Hardware Store.");
 
 const GREETING_KEYWORDS = ["hi", "hello", "hey", "salam", "assalam"];
 

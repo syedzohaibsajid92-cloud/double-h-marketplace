@@ -115,9 +115,16 @@ export default function HomePage({
 }) {
   const categoryNames = categories.map((c) => c.name);
 
-    const [showWelcome, setShowWelcome] = useState(true);
+    const [showWelcome, setShowWelcome] = useState(
+    () => !window.localStorage.getItem("pakHardwareWelcomeSeen")
+  );
   const [slideIndex, setSlideIndex] = useState(0);
   const [addedId, setAddedId] = useState(null);
+
+  function dismissWelcome() {
+    window.localStorage.setItem("pakHardwareWelcomeSeen", "1");
+    setShowWelcome(false);
+  }
 
   function handleQuickAdd(e, productId) {
     e.stopPropagation();
@@ -139,14 +146,14 @@ export default function HomePage({
     return (
     <div className="page">
       {showWelcome && (
-        <div className="welcome-overlay" onClick={() => setShowWelcome(false)}>
+        <div className="welcome-overlay" onClick={dismissWelcome}>
           <div className="welcome-card" onClick={(e) => e.stopPropagation()}>
-            <button className="welcome-close" onClick={() => setShowWelcome(false)}>
+            <button className="welcome-close" onClick={dismissWelcome}>
               <X size={18} />
             </button>
             <h2>Welcome to PAK Hardware Store</h2>
             <p>Genuine imported tools, shipping across Pakistan.</p>
-            <button className="btn btn-primary" onClick={() => setShowWelcome(false)}>
+            <button className="btn btn-primary" onClick={dismissWelcome}>
               Start Shopping
             </button>
           </div>

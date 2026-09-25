@@ -196,13 +196,13 @@ export default function ProductDetailPage({
       <span
         className="thumb"
         style={{
-          width: "60px",
-          height: "60px",
+          width: "100%",
+          height: "150px",
           overflow: "hidden",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: "6px",
+          borderRadius: "8px",
           flexShrink: 0,
         }}
       >
@@ -213,7 +213,7 @@ export default function ProductDetailPage({
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : (
-          <Wrench size={16} className="thumb-icon" />
+          <Wrench size={32} className="thumb-icon" />
         )}
       </span>
       <span>{p.name}</span>

@@ -159,6 +159,13 @@ export default function App() {
     setSearchInput("");
   }
 
+  function handleModuleSwitch(moduleKey) {
+    if (moduleKey === "store") {
+      goHome();
+    }
+    setActiveModule(moduleKey);
+  }
+
   function goToProducts() {
     setPage("products");
   }
@@ -551,7 +558,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
 
           <ModuleSwitcher
         activeModule={activeModule}
-        onSwitch={setActiveModule}
+        onSwitch={handleModuleSwitch}
         user={currentUser}
         onLogout={handleLogout}
         onBecomeVendor={handleBecomeVendor}

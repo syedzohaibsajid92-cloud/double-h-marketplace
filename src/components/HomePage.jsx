@@ -264,7 +264,6 @@ export default function HomePage({
       )}
       {/* Categories Section */}
   
-            {!isGuest && (
       <section className={`fade-in-section ${catVisible ? "fade-in-visible" : ""}`} ref={catRef}>
         <h2 className="section-title">Shop by Category</h2>
         <div className="category-grid">
@@ -311,12 +310,10 @@ export default function HomePage({
             );
           })}
         </div>
-            </section>
-      )}
+      </section>
 
       {/* Featured Products Section */}
       
-            {!isGuest && (
       <section className={`fade-in-section ${prodVisible ? "fade-in-visible" : ""}`} ref={prodRef}>
         <h2 className="section-title">Featured Products</h2>
         {products.length === 0 && <p className="empty-state">No products available yet.</p>}
@@ -381,7 +378,7 @@ export default function HomePage({
           })}
              </div>
       </section>
-      )}
+      
     </div>
   );
 }

@@ -143,6 +143,7 @@ const createProduct = async (req, res) => {
             discount,
             category_id,
             image_url,
+            extra_images,
             specifications,
             unit
         } = req.body;
@@ -155,8 +156,8 @@ const createProduct = async (req, res) => {
 
         const newProduct = await pool.query(
             `INSERT INTO products 
-                (vendor_id, category_id, name, description, brand, sku, price, stock, discount, image_url, specifications, unit, approval_status, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', 'active')
+                (vendor_id, category_id, name, description, brand, sku, price, stock, discount, image_url, extra_images, specifications, unit, approval_status, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'pending', 'active')
              RETURNING *`,
             [
                 vendorId,
@@ -169,6 +170,7 @@ const createProduct = async (req, res) => {
                 stock,
                 discount || 0.00,
                 image_url || null,
+                JSON.stringify(Array.isArray(extra_images) ? extra_images : []),
                 specifications ? JSON.stringify(specifications) : '{}',
                 unit || 'piece'
             ]
@@ -209,6 +211,7 @@ const updateProduct = async (req, res) => {
             stock,
             discount,
             image_url,
+            extra_images,
             specifications,
             unit
         } = req.body;
@@ -225,10 +228,11 @@ const updateProduct = async (req, res) => {
                 stock = COALESCE($7, stock),
                 discount = COALESCE($8, discount),
                 image_url = COALESCE($9, image_url),
-                specifications = COALESCE($10, specifications),
-                unit = COALESCE($11, unit),
+                extra_images = COALESCE($10, extra_images),
+                specifications = COALESCE($11, specifications),
+                unit = COALESCE($12, unit),
                 updated_at = NOW()
-             WHERE id = $12 AND vendor_id = $13
+             WHERE id = $13 AND vendor_id = $14
              RETURNING *`,
             [
                 category_id || null,
@@ -240,6 +244,7 @@ const updateProduct = async (req, res) => {
                 stock !== undefined ? stock : null,
                 discount !== undefined ? discount : null,
                 image_url || null,
+                Array.isArray(extra_images) ? JSON.stringify(extra_images) : null,
                 specifications ? JSON.stringify(specifications) : null,
                 unit || null,
                 id,

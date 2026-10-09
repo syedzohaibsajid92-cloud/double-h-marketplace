@@ -111,6 +111,7 @@ export default function HomePage({
   onProductClick,
   onAddToCart,
   onSupportClick,
+  onSmartClick,
   isGuest,
 }) {
   const categoryNames = categories.map((c) => c.name);
@@ -262,6 +263,15 @@ export default function HomePage({
           </div>
         </section>
       )}
+            <section className="smart-banner">
+        <div>
+          <h2 className="section-title" style={{ margin: 0 }}>Not sure which tool you need?</h2>
+          <p>Upload a photo of the problem and we will recommend the right tools.</p>
+        </div>
+        <button className="btn btn-primary" onClick={onSmartClick}>
+          Find by Photo
+        </button>
+      </section>
       {/* Categories Section */}
   
       <section className={`fade-in-section ${catVisible ? "fade-in-visible" : ""}`} ref={catRef}>

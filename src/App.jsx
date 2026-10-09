@@ -1,3 +1,4 @@
+import SmartRecommendPage from "./components/SmartRecommendPage";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import ModuleSwitcher from "./components/ModuleSwitcher";
 import Header from "./components/Header";
@@ -195,7 +196,9 @@ export default function App() {
     setSelectedProductId(id);
     setPage("detail");
   }
-
+  function goToSmart() {
+    setPage("smart");
+  }
   function goToSupport() {
     setPreviousPage(page === "support" ? previousPage : page);
     setPage("support");
@@ -576,6 +579,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
             cartCount={cartCount}
             onCartClick={() => setPage("cart")}
             onSupportClick={goToSupport}
+             onSmartClick={goToSmart}
           />
 
                     {page === "home" && (
@@ -587,6 +591,7 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
               onProductClick={handleProductClick}
               onAddToCart={handleAddToCart}
               onSupportClick={goToSupport}
+              onSmartClick={goToSmart}
               isGuest={!currentUser}
             />
           )}
@@ -628,7 +633,13 @@ async function handleUpdateOrderStatus(orderId, productId, status) {
               onContinueShopping={goToProducts}
             />
           )}
-
+          {page === "smart" && (
+            <SmartRecommendPage
+              onAddToCart={handleAddToCart}
+              onProductClick={handleProductClick}
+              onGoHome={goHome}
+            />
+          )}
           {page === "support" && (
             <CustomerService onBack={handleSupportBack} onSubmitTicket={handleSubmitTicket} />
           )}

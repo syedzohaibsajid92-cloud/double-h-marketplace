@@ -3,6 +3,7 @@ import {
   Search,
   ShoppingCart,
   MessageCircleQuestion,
+  Camera,
   Menu,
   X,
 } from "lucide-react";
@@ -14,6 +15,7 @@ const LABELS = {
   detail: "PRODUCT PAGE",
   cart: "CART & CHECKOUT",
   support: "CUSTOMER SERVICE",
+    smart: "FIND BY PHOTO",
 };
 
 export default function Header({
@@ -25,6 +27,7 @@ export default function Header({
   cartCount,
   onCartClick,
   onSupportClick,
+  onSmartClick,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const showSearch = page === "home" || page === "products";
@@ -51,6 +54,9 @@ export default function Header({
         </button>
 
         <div className="header-right desktop-only">
+                    <button className="icon-link" onClick={onSmartClick}>
+            <Camera size={18} /> Find by Photo
+          </button>
           <button className="icon-link" onClick={onSupportClick}>
             <MessageCircleQuestion size={18} /> Help
           </button>

@@ -143,3 +143,7 @@ vite.config.ts.timestamp-*
 .vite/
 .vercel
 .env*
+
+# AI tooling folders
+.gemini/
+.antigravity/

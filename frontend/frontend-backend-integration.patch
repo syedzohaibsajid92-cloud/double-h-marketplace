@@ -1,0 +1,1485 @@
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..8de419c
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,6 @@
++# Copy this file to .env for local development, or set the same
++# variable in Vercel's Project Settings -> Environment Variables
++# for deployment.
++
++# URL of the deployed backend API (no trailing slash, include /api)
++REACT_APP_API_URL=https://double-h-marketplace.vercel.app/api
+diff --git a/src/App.jsx b/src/App.jsx
+index 0393801..96a2d1e 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -1,4 +1,4 @@
+-import React, { useState, useMemo } from "react";
++import React, { useState, useEffect, useMemo, useCallback } from "react";
+ import ModuleSwitcher from "./components/ModuleSwitcher";
+ import Header from "./components/Header";
+ import HomePage from "./components/HomePage";
+@@ -10,58 +10,152 @@ import AdminPanel from "./components/AdminPanel";
+ import CustomerService from "./components/CustomerService";
+ import Auth from "./components/Auth";
+ import VendorOnboarding from "./components/VendorOnboarding";
+-import { SEED_PRODUCTS } from "./data/products";
+-import { SEED_USERS, hasVendorAccess } from "./data/users";
+-import { SEED_VENDORS } from "./data/vendors";
+-import { SEED_CATEGORIES } from "./data/categories";
+-import { SEED_ORDERS, generateOrderId } from "./data/orders";
+-import { SEED_PAYOUTS } from "./data/payouts";
++import { api, setToken, getToken } from "./api/client";
++import { adaptUser, adaptCategory, adaptProduct, adaptVendor, adaptOrder } from "./api/adapters";
+ import { SEED_TICKETS, generateTicketId } from "./data/tickets";
+ 
+ export default function App() {
+-  // auth state
+-  const [users, setUsers] = useState(SEED_USERS);
+   const [currentUser, setCurrentUser] = useState(null);
++  const [bootLoading, setBootLoading] = useState(true);
+ 
+-  // marketplace data
+-  const [vendors, setVendors] = useState(SEED_VENDORS);
+-  const [products, setProducts] = useState(SEED_PRODUCTS);
+-  const [categories, setCategories] = useState(SEED_CATEGORIES);
+-  const [orders, setOrders] = useState(SEED_ORDERS);
+-  const [payouts] = useState(SEED_PAYOUTS);
++  const [vendors, setVendors] = useState([]);
++  const [products, setProducts] = useState([]);
++  const [categories, setCategories] = useState([]);
++  const [orders, setOrders] = useState([]);
++  const [payouts] = useState([]);
+   const [tickets, setTickets] = useState(SEED_TICKETS);
+ 
++  const [dataLoading, setDataLoading] = useState(true);
++  const [dataError, setDataError] = useState("");
++
++  const [pendingVendors, setPendingVendors] = useState([]);
++  // The logged-in user's own vendor record (if any) — there's no "get my
++  // full vendor profile" endpoint, so this is built from the narrower
++  // verification-status endpoint, which is the only one a non-admin can
++  // call about their own vendor account.
++  const [myVendorRecord, setMyVendorRecord] = useState(null);
++
+   const [activeModule, setActiveModule] = useState("store");
+-  const [screen, setScreen] = useState("app"); // "app" | "vendor-onboarding"
++  const [screen, setScreen] = useState("app");
+ 
+-  // storefront navigation state
+-  const [page, setPage] = useState("home"); // "home" | "products" | "detail" | "cart" | "support"
++  const [page, setPage] = useState("home");
+   const [previousPage, setPreviousPage] = useState("home");
+   const [searchInput, setSearchInput] = useState("");
+   const [appliedSearch, setAppliedSearch] = useState("");
+   const [activeCategory, setActiveCategory] = useState(null);
+   const [selectedProductId, setSelectedProductId] = useState(null);
+ 
+-  // cart state, shared between the product detail page and checkout
+-  const [cart, setCart] = useState([]); // [{ productId, qty }]
++  const [cart, setCart] = useState([]);
++
++  useEffect(() => {
++    async function boot() {
++      const token = getToken();
++      if (token) {
++        try {
++          // /auth/me only returns the raw JWT payload (id/email/role) —
++          // there's no dedicated "my full profile" endpoint, so fetch the
++          // rest of the profile by id and merge the two together.
++          const me = await api.get("/auth/me");
++          const full = await api.get(`/users/${me.user.id}`);
++          setCurrentUser(adaptUser({ ...full, role: me.user.role }));
++        } catch (err) {
++          setToken("");
++        }
++      }
++      setBootLoading(false);
++    }
++    boot();
++  }, []);
++
++  const loadCatalog = useCallback(async () => {
++    setDataLoading(true);
++    setDataError("");
++    try {
++      const [catRes, prodRes, vendorList] = await Promise.all([
++        api.get("/categories", { auth: false }),
++        api.get("/products", { auth: false }),
++        currentUser?.role === "admin" ? api.get("/vendors") : Promise.resolve(null),
++      ]);
++
++      const cats = (catRes.categories || []).map(adaptCategory);
++      const catsById = {};
++      cats.forEach((c) => (catsById[c.id] = c.name));
++      setCategories(cats);
++
++      const rawProducts = Array.isArray(prodRes) ? prodRes : prodRes.products || [];
++      setProducts(rawProducts.map((p) => adaptProduct(p, catsById)));
++
++      if (vendorList) {
++        setVendors((Array.isArray(vendorList) ? vendorList : vendorList.vendors || []).map(adaptVendor));
++      }
++    } catch (err) {
++      setDataError(err.message || "Failed to load the catalog.");
++    } finally {
++      setDataLoading(false);
++    }
++  }, [currentUser?.role]);
++
++  useEffect(() => {
++    loadCatalog();
++  }, [loadCatalog]);
++
++  useEffect(() => {
++    if (!currentUser) {
++      setCart([]);
++      setMyVendorRecord(null);
++      return;
++    }
++    api
++      .get("/cart")
++      .then((res) => {
++        const rows = res.cart || [];
++        setCart(rows.map((r) => ({ productId: r.product_id, qty: r.quantity, cartItemId: r.cart_id })));
++      })
++      .catch(() => {});
++
++    api
++      .get("/vendors/verification/status")
++      .then((res) => {
++        const v = res.vendor;
++        setMyVendorRecord({
++          id: v.id,
++          userId: currentUser.id,
++          business_name: v.business_name || "",
++          business_email: "",
++          business_phone: "",
++          business_address: "",
++          city: "",
++          country: "",
++          description: "",
++          logo_url: "",
++          website_url: "",
++          cnic_number: v.cnic_number || "",
++          verification_document_url: v.verification_document_url || "",
++          verification_status: v.verification_status || "not_submitted",
++          // The verification-status endpoint doesn't expose the vendor's
++          // approval/active flags, so we treat "has a vendor record" as
++          // enough to unlock the vendor dashboard for this demo.
++          approval_status: "Approved",
++          status: "active",
++          is_active: true,
++          commission_rate: 0,
++        });
++      })
++      .catch(() => setMyVendorRecord(null));
++  }, [currentUser]);
++
++  // Regular (non-admin) users have no endpoint that returns other vendors'
++  // approval status, and the public /api/products endpoint doesn't filter
++  // by vendor approval either — so the storefront simply shows whatever
++  // the backend returns, same as a real customer would see.
++  const storefrontProducts = products;
+ 
+-  // ---- derived lookups ----------------------------------------------
+   const vendorsById = useMemo(() => {
+     const map = {};
+     vendors.forEach((v) => (map[v.id] = v));
++    if (myVendorRecord) map[myVendorRecord.id] = myVendorRecord;
+     return map;
+-  }, [vendors]);
+-
+-  function isVendorLive(vendorId) {
+-    const v = vendorsById[vendorId];
+-    return !!v && v.approval_status === "Approved" && v.is_active;
+-  }
+-
+-  // only products from an approved & active vendor ever reach the storefront
+-  const storefrontProducts = useMemo(
+-    () => products.filter((p) => isVendorLive(p.vendorId)),
+-    [products, vendors]
+-  );
++  }, [vendors, myVendorRecord]);
+ 
+   const filteredProducts = useMemo(() => {
+     return storefrontProducts.filter((p) => {
+@@ -77,9 +171,6 @@ export default function App() {
+   const selectedProduct = storefrontProducts.find((p) => p.id === selectedProductId);
+   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
+ 
+-  const myVendor = currentUser ? vendors.find((v) => v.userId === currentUser.id) : null;
+-
+-  // ---- storefront navigation -----------------------------------------
+   function goHome() {
+     setPage("home");
+     setActiveCategory(null);
+@@ -126,94 +217,78 @@ export default function App() {
+     setPage(previousPage);
+   }
+ 
+-  // ---- cart -------------------------------------------------------------
+-  function handleAddToCart(productId) {
+-    setCart((prev) => {
+-      const existing = prev.find((item) => item.productId === productId);
+-      if (existing) {
+-        return prev.map((item) =>
+-          item.productId === productId ? { ...item, qty: item.qty + 1 } : item
+-        );
++  async function handleAddToCart(productId) {
++    if (!currentUser) return;
++    try {
++      const res = await api.post("/cart", { product_id: productId, quantity: 1 });
++      const row = res.cart;
++      setCart((prev) => {
++        const existing = prev.find((item) => item.productId === productId);
++        if (existing) {
++          return prev.map((item) =>
++            item.productId === productId ? { ...item, qty: row.quantity, cartItemId: row.id } : item
++          );
++        }
++        return [...prev, { productId, qty: row.quantity, cartItemId: row.id }];
++      });
++    } catch (err) {
++      alert(err.message || "Could not add this item to your cart.");
++    }
++  }
++
++  async function handleUpdateQty(productId, qty) {
++    const item = cart.find((c) => c.productId === productId);
++    if (!item) return;
++
++    if (qty <= 0) {
++      try {
++        await api.delete(`/cart/${item.cartItemId}`);
++        setCart((prev) => prev.filter((c) => c.productId !== productId));
++      } catch (err) {
++        alert(err.message || "Could not remove this item.");
+       }
+-      return [...prev, { productId, qty: 1 }];
+-    });
+-  }
+-
+-  function handleUpdateQty(productId, qty) {
+-    setCart((prev) => {
+-      if (qty <= 0) return prev.filter((item) => item.productId !== productId);
+-      return prev.map((item) =>
+-        item.productId === productId ? { ...item, qty } : item
+-      );
+-    });
+-  }
+-
+-  function handlePlaceOrder() {
+-    if (cart.length === 0 || !currentUser) return;
+-
+-    const items = cart
+-      .map((entry) => {
+-        const product = products.find((p) => p.id === entry.productId);
+-        if (!product) return null;
+-        return {
+-          productId: product.id,
+-          vendorId: product.vendorId,
+-          name: product.name,
+-          price: product.price,
+-          qty: entry.qty,
+-          status: "Processing",
+-        };
+-      })
+-      .filter(Boolean);
+-
+-    const newOrder = {
+-      id: generateOrderId(),
+-      customerName: `${currentUser.first_name} ${currentUser.last_name}`.trim(),
+-      customerEmail: currentUser.email,
+-      date: new Date().toISOString().slice(0, 10),
+-      items,
+-    };
+-
+-    setOrders((prev) => [...prev, newOrder]);
+-
+-    // decrement stock for each purchased product
+-    setProducts((prev) =>
+-      prev.map((p) => {
+-        const entry = cart.find((c) => c.productId === p.id);
+-        if (!entry) return p;
+-        const nextStock = Math.max((p.stock || 0) - entry.qty, 0);
+-        return { ...p, stock: nextStock, inStock: nextStock > 0 };
+-      })
+-    );
+-
+-    setCart([]);
++      return;
++    }
++
++    try {
++      await api.put(`/cart/${item.cartItemId}`, { quantity: qty });
++      setCart((prev) => prev.map((c) => (c.productId === productId ? { ...c, qty } : c)));
++    } catch (err) {
++      alert(err.message || "Could not update quantity.");
++    }
++  }
++
++  async function handlePlaceOrder(addressId) {
++    if (cart.length === 0 || !currentUser || !addressId) return false;
++    try {
++      await api.post("/orders", { address_id: addressId, payment_method: "COD" });
++      setCart([]);
++      loadCatalog();
++      loadMyOrders();
++      return true;
++    } catch (err) {
++      alert(err.message || "Could not place the order.");
++      return false;
++    }
+   }
+ 
+-  // ---- wishlist -----------------------------------------------------------
+   function handleToggleWishlist(productId) {
+     if (!currentUser) return;
+-    setUsers((prev) =>
+-      prev.map((u) => {
+-        if (u.id !== currentUser.id) return u;
+-        const has = u.wishlist.includes(productId);
+-        return {
+-          ...u,
+-          wishlist: has ? u.wishlist.filter((id) => id !== productId) : [...u.wishlist, productId],
+-        };
+-      })
+-    );
+-    setCurrentUser((prev) => {
+-      const has = prev.wishlist.includes(productId);
+-      return {
+-        ...prev,
+-        wishlist: has ? prev.wishlist.filter((id) => id !== productId) : [...prev.wishlist, productId],
+-      };
+-    });
+-  }
+-
+-  // ---- auth -----------------------------------------------------------
+-  function handleRegister(newUser) {
+-    setUsers((prev) => [...prev, newUser]);
++    const has = currentUser.wishlist.includes(productId);
++    setCurrentUser((prev) => ({
++      ...prev,
++      wishlist: has ? prev.wishlist.filter((id) => id !== productId) : [...prev.wishlist, productId],
++    }));
++    const call = has ? api.delete(`/wishlist/${productId}`) : api.post("/wishlist", { product_id: productId });
++    call.catch(() => {});
++  }
++
++  async function handleRegisterAndLogin(form) {
++    const res = await api.post("/auth/login", { email: form.email, password: form.password }, { auth: false });
++    setToken(res.token);
++    const user = adaptUser(res.user);
++    setCurrentUser(user);
++    return user;
+   }
+ 
+   function handleLoginSuccess(user) {
+@@ -225,7 +300,8 @@ export default function App() {
+     setPage("home");
+   }
+ 
+-  function handleLogout() {
++  async function handleLogout() {
++    setToken("");
+     setCurrentUser(null);
+     setActiveModule("store");
+     setScreen("app");
+@@ -233,7 +309,20 @@ export default function App() {
+     setCart([]);
+   }
+ 
+-  // ---- vendor onboarding -----------------------------------------------
++  const loadMyOrders = useCallback(async () => {
++    if (!currentUser) return;
++    try {
++      const rows = await api.get("/orders/user");
++      setOrders((Array.isArray(rows) ? rows : []).map((o) => adaptOrder(o, [])));
++    } catch (err) {
++      // non-fatal
++    }
++  }, [currentUser]);
++
++  useEffect(() => {
++    loadMyOrders();
++  }, [loadMyOrders]);
++
+   function handleBecomeVendor() {
+     setScreen("vendor-onboarding");
+   }
+@@ -242,32 +331,31 @@ export default function App() {
+     setScreen("app");
+   }
+ 
+-  function handleVendorOnboardingComplete(vendorForm) {
+-    const newVendor = {
+-      id: Date.now(),
+-      userId: currentUser.id,
+-      business_name: vendorForm.business_name,
+-      business_email: vendorForm.business_email,
+-      business_phone: vendorForm.business_phone,
+-      business_address: vendorForm.business_address,
+-      city: vendorForm.city,
+-      country: vendorForm.country,
+-      description: vendorForm.description,
+-      logo_url: vendorForm.logo_url,
+-      website_url: vendorForm.website_url,
+-      cnic_number: vendorForm.cnic_number,
+-      verification_document_url: vendorForm.verification_document_url,
+-      approval_status: "Pending",
+-      status: "pending",
+-      is_active: false,
+-      verification_status: "Pending",
+-      created_at: new Date().toISOString().slice(0, 10),
+-    };
+-
+-    setVendors((prev) => [...prev, newVendor]);
+-
+-    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? { ...u, is_vendor: true } : u)));
+-    setCurrentUser((prev) => ({ ...prev, is_vendor: true }));
++  async function handleVendorOnboardingComplete(vendorForm) {
++    try {
++      const res = await api.post("/vendors/register", {
++        business_name: vendorForm.business_name,
++        business_email: vendorForm.business_email,
++        business_phone: vendorForm.business_phone,
++        business_address: vendorForm.business_address,
++        city: vendorForm.city,
++        country: vendorForm.country,
++        description: vendorForm.description,
++        logo_url: vendorForm.logo_url,
++        website_url: vendorForm.website_url,
++      });
++
++      await api.post("/vendors/verification/submit", {
++        cnic_number: vendorForm.cnic_number,
++        verification_document_url: vendorForm.verification_document_url,
++      });
++
++      const newVendor = adaptVendor(res.vendor);
++      setVendors((prev) => [...prev, newVendor]);
++      setMyVendorRecord({ ...newVendor, userId: currentUser.id });
++    } catch (err) {
++      alert(err.message || "Could not submit your vendor application.");
++    }
+   }
+ 
+   function handleVendorOnboardingFinish() {
+@@ -275,48 +363,54 @@ export default function App() {
+     setActiveModule("vendor");
+   }
+ 
+-  // ---- vendor dashboard actions -----------------------------------------
+-  function handleAddProduct(productData) {
+-    if (!myVendor) return;
+-    const newProduct = {
+-      id: Date.now(),
+-      vendorId: myVendor.id,
+-      name: productData.name,
+-      description: productData.description || "",
+-      price: Number(productData.price) || 0,
+-      stock: Number(productData.stock) || 0,
+-      category: productData.category || categories[0]?.name || "",
+-      image_url: productData.image_url || "",
+-      brand: myVendor.business_name,
+-      sku: `${myVendor.business_name.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-5)}`,
+-      rating: 0,
+-      reviewCount: 0,
+-      inStock: (Number(productData.stock) || 0) > 0,
+-      variants: [],
+-      reviews: [],
+-    };
+-    setProducts((prev) => [...prev, newProduct]);
+-  }
+-
+-  function handleUpdateProduct(productId, updates) {
+-    setProducts((prev) =>
+-      prev.map((p) => {
+-        if (p.id !== productId) return p;
+-        const next = { ...p, ...updates };
+-        if (updates.stock !== undefined) next.inStock = Number(updates.stock) > 0;
+-        return next;
+-      })
+-    );
+-  }
+-
+-  function handleAdjustStock(productId, delta) {
+-    setProducts((prev) =>
+-      prev.map((p) => {
+-        if (p.id !== productId) return p;
+-        const nextStock = Math.max((p.stock || 0) + delta, 0);
+-        return { ...p, stock: nextStock, inStock: nextStock > 0 };
+-      })
+-    );
++  async function handleAddProduct(productData) {
++    if (!myVendorRecord) return;
++    const category = categories.find((c) => c.name === productData.category);
++    try {
++      const res = await api.post("/products", {
++        name: productData.name,
++        description: productData.description,
++        price: Number(productData.price) || 0,
++        stock: Number(productData.stock) || 0,
++        category_id: category ? category.id : undefined,
++        image_url: productData.image_url,
++      });
++      const catsById = {};
++      categories.forEach((c) => (catsById[c.id] = c.name));
++      setProducts((prev) => [...prev, adaptProduct(res.product, catsById)]);
++    } catch (err) {
++      alert(err.message || "Could not create this product.");
++    }
++  }
++
++  async function handleUpdateProduct(productId, updates) {
++    const category = updates.category ? categories.find((c) => c.name === updates.category) : null;
++    try {
++      const res = await api.put(`/products/${productId}`, {
++        ...updates,
++        category_id: category ? category.id : undefined,
++      });
++      const catsById = {};
++      categories.forEach((c) => (catsById[c.id] = c.name));
++      const updated = adaptProduct(res.product, catsById);
++      setProducts((prev) => prev.map((p) => (p.id === productId ? updated : p)));
++    } catch (err) {
++      alert(err.message || "Could not update this product.");
++    }
++  }
++
++  async function handleAdjustStock(productId, delta) {
++    const product = products.find((p) => p.id === productId);
++    if (!product) return;
++    const nextStock = Math.max((product.stock || 0) + delta, 0);
++    try {
++      await api.patch(`/vendors/inventory/${productId}/stock`, { stock: nextStock });
++      setProducts((prev) =>
++        prev.map((p) => (p.id === productId ? { ...p, stock: nextStock, inStock: nextStock > 0 } : p))
++      );
++    } catch (err) {
++      alert(err.message || "Could not adjust stock.");
++    }
+   }
+ 
+   function handleUpdateOrderItemStatus(orderId, productId, vendorId, status) {
+@@ -333,46 +427,77 @@ export default function App() {
+     );
+   }
+ 
+-  function handleUpdateVendorProfile(vendorId, updates) {
+-    setVendors((prev) => prev.map((v) => (v.id === vendorId ? { ...v, ...updates } : v)));
+-  }
+-
+-  // ---- admin actions -----------------------------------------------------
+-  function handleApproveVendor(vendorId) {
+-    setVendors((prev) =>
+-      prev.map((v) =>
+-        v.id === vendorId
+-          ? { ...v, approval_status: "Approved", status: "active", is_active: true, verification_status: "Verified" }
+-          : v
+-      )
+-    );
+-  }
+-
+-  function handleRejectVendor(vendorId) {
+-    setVendors((prev) =>
+-      prev.map((v) =>
+-        v.id === vendorId
+-          ? { ...v, approval_status: "Rejected", status: "rejected", is_active: false, verification_status: "Rejected" }
+-          : v
+-      )
+-    );
++  async function handleUpdateVendorProfile(vendorId, updates) {
++    try {
++      const res = await api.put(`/vendors/${vendorId}`, updates);
++      const updated = adaptVendor(res.vendor);
++      setVendors((prev) => prev.map((v) => (v.id === vendorId ? updated : v)));
++    } catch (err) {
++      alert(err.message || "Could not update vendor profile.");
++    }
++  }
++
++  const loadPendingVendors = useCallback(async () => {
++    try {
++      const res = await api.get("/admin/vendors/pending");
++      setPendingVendors((res.vendors || []).map(adaptVendor));
++    } catch (err) {
++      // non-fatal
++    }
++  }, []);
++
++  useEffect(() => {
++    if (activeModule === "admin" && currentUser?.role === "admin") {
++      loadPendingVendors();
++    }
++  }, [activeModule, currentUser, loadPendingVendors]);
++
++  async function handleApproveVendor(vendorId) {
++    try {
++      await api.patch(`/admin/vendors/${vendorId}/approve`);
++      setVendors((prev) =>
++        prev.map((v) =>
++          v.id === vendorId ? { ...v, approval_status: "Approved", status: "active", is_active: true } : v
++        )
++      );
++      setPendingVendors((prev) => prev.filter((v) => v.id !== vendorId));
++    } catch (err) {
++      alert(err.message || "Could not approve this vendor.");
++    }
++  }
++
++  async function handleRejectVendor(vendorId) {
++    try {
++      await api.patch(`/admin/vendors/${vendorId}/reject`, { reason: "Application rejected by admin." });
++      setVendors((prev) =>
++        prev.map((v) =>
++          v.id === vendorId ? { ...v, approval_status: "Rejected", status: "rejected", is_active: false } : v
++        )
++      );
++      setPendingVendors((prev) => prev.filter((v) => v.id !== vendorId));
++    } catch (err) {
++      alert(err.message || "Could not reject this vendor.");
++    }
+   }
+ 
+-  function handleAddCategory(name) {
++  async function handleAddCategory(name) {
+     const trimmed = name.trim();
+     if (!trimmed) return;
+     if (categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) return;
+-    setCategories((prev) => [...prev, { id: Date.now(), name: trimmed }]);
++    try {
++      const res = await api.post("/categories", { name: trimmed });
++      setCategories((prev) => [...prev, adaptCategory(res.category || res)]);
++    } catch (err) {
++      alert(err.message || "Could not add this category.");
++    }
+   }
+ 
+   function handleAddAdmin(adminUser) {
+-    setUsers((prev) => [...prev, adminUser]);
++    console.warn("handleAddAdmin: not wired to a backend endpoint yet.");
+   }
+ 
+   function handleReplyTicket(ticketId, reply) {
+-    setTickets((prev) =>
+-      prev.map((t) => (t.id === ticketId ? { ...t, reply, status: "Answered" } : t))
+-    );
++    setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, reply, status: "Answered" } : t)));
+   }
+ 
+   function handleSubmitTicket({ subject, message }) {
+@@ -391,11 +516,18 @@ export default function App() {
+     setTickets((prev) => [...prev, newTicket]);
+   }
+ 
+-  // ---- render -------------------------------------------------------------
++  if (bootLoading) {
++    return (
++      <div className="app-shell">
++        <div className="boot-loading">Loading…</div>
++      </div>
++    );
++  }
++
+   if (!currentUser) {
+     return (
+       <div className="app-shell">
+-        <Auth users={users} onRegister={handleRegister} onLoginSuccess={handleLoginSuccess} />
++        <Auth onRegisterAndLogin={handleRegisterAndLogin} onLoginSuccess={handleLoginSuccess} />
+       </div>
+     );
+   }
+@@ -418,11 +550,13 @@ export default function App() {
+       <ModuleSwitcher
+         activeModule={activeModule}
+         onSwitch={setActiveModule}
+-        user={currentUser}
++        user={{ ...currentUser, is_vendor: !!myVendorRecord }}
+         onLogout={handleLogout}
+         onBecomeVendor={handleBecomeVendor}
+       />
+ 
++      {dataError && <div className="data-error-banner">{dataError}</div>}
++
+       {activeModule === "store" && (
+         <>
+           <Header
+@@ -436,41 +570,47 @@ export default function App() {
+             onSupportClick={goToSupport}
+           />
+ 
+-          {page === "home" && (
+-            <HomePage
+-              products={storefrontProducts}
+-              categories={categories}
+-              onShopNow={handleShopNow}
+-              onCategoryClick={handleCategoryClick}
+-              onProductClick={handleProductClick}
+-              onSupportClick={goToSupport}
+-            />
+-          )}
+-
+-          {page === "products" && (
+-            <ProductsPage
+-              products={filteredProducts}
+-              categories={categories}
+-              searchTerm={appliedSearch}
+-              activeCategory={activeCategory}
+-              onCategoryFilter={setActiveCategory}
+-              onProductClick={handleProductClick}
+-              onGoHome={goHome}
+-            />
+-          )}
+-
+-          {page === "detail" && selectedProduct && (
+-            <ProductDetailPage
+-              product={selectedProduct}
+-              relatedProducts={storefrontProducts}
+-              vendor={vendorsById[selectedProduct.vendorId]}
+-              wishlisted={currentUser.wishlist.includes(selectedProduct.id)}
+-              onToggleWishlist={() => handleToggleWishlist(selectedProduct.id)}
+-              onProductClick={handleProductClick}
+-              onAddToCart={handleAddToCart}
+-              onGoHome={goHome}
+-              onGoProducts={goToProducts}
+-            />
++          {dataLoading && page !== "cart" && page !== "support" ? (
++            <div className="page catalog-loading">Loading products…</div>
++          ) : (
++            <>
++              {page === "home" && (
++                <HomePage
++                  products={storefrontProducts}
++                  categories={categories}
++                  onShopNow={handleShopNow}
++                  onCategoryClick={handleCategoryClick}
++                  onProductClick={handleProductClick}
++                  onSupportClick={goToSupport}
++                />
++              )}
++
++              {page === "products" && (
++                <ProductsPage
++                  products={filteredProducts}
++                  categories={categories}
++                  searchTerm={appliedSearch}
++                  activeCategory={activeCategory}
++                  onCategoryFilter={setActiveCategory}
++                  onProductClick={handleProductClick}
++                  onGoHome={goHome}
++                />
++              )}
++
++              {page === "detail" && selectedProduct && (
++                <ProductDetailPage
++                  product={selectedProduct}
++                  relatedProducts={storefrontProducts}
++                  vendor={vendorsById[selectedProduct.vendorId]}
++                  wishlisted={currentUser.wishlist.includes(selectedProduct.id)}
++                  onToggleWishlist={() => handleToggleWishlist(selectedProduct.id)}
++                  onProductClick={handleProductClick}
++                  onAddToCart={handleAddToCart}
++                  onGoHome={goHome}
++                  onGoProducts={goToProducts}
++                />
++              )}
++            </>
+           )}
+ 
+           {page === "cart" && (
+@@ -492,15 +632,13 @@ export default function App() {
+         </>
+       )}
+ 
+-      {activeModule === "vendor" && hasVendorAccess(currentUser) && (
++      {activeModule === "vendor" && myVendorRecord && (
+         <VendorDashboard
+-          vendor={myVendor}
+-          products={products.filter((p) => myVendor && p.vendorId === myVendor.id)}
++          vendor={myVendorRecord}
++          products={products.filter((p) => myVendorRecord && p.vendorId === myVendorRecord.id)}
+           categories={categories}
+-          orders={orders.filter(
+-            (o) => myVendor && o.items.some((item) => item.vendorId === myVendor.id)
+-          )}
+-          payouts={payouts.filter((p) => myVendor && p.vendorId === myVendor.id)}
++          orders={orders.filter((o) => myVendorRecord && o.items.some((item) => item.vendorId === myVendorRecord.id))}
++          payouts={payouts.filter((p) => myVendorRecord && p.vendorId === myVendorRecord.id)}
+           onAddProduct={handleAddProduct}
+           onUpdateProduct={handleUpdateProduct}
+           onAdjustStock={handleAdjustStock}
+@@ -512,8 +650,8 @@ export default function App() {
+       {activeModule === "admin" && currentUser.role === "admin" && (
+         <AdminPanel
+           currentUser={currentUser}
+-          users={users}
+-          vendors={vendors}
++          users={[]}
++          vendors={[...pendingVendors, ...vendors.filter((v) => v.approval_status !== "Pending")]}
+           products={products}
+           categories={categories}
+           orders={orders}
+diff --git a/src/api/adapters.js b/src/api/adapters.js
+new file mode 100644
+index 0000000..bffccb1
+--- /dev/null
++++ b/src/api/adapters.js
+@@ -0,0 +1,96 @@
++/* ============================================================
++   ADAPTERS
++   The UI components were built against the SEED_* mock shapes
++   (vendorId, category as a name string, image, inStock, etc).
++   These functions translate real backend rows (vendor_id,
++   category_id, image_url, stock, ...) into that same shape, so
++   the components themselves don't need to change.
++   ============================================================ */
++
++export function adaptUser(u) {
++  if (!u) return null;
++  return {
++    id: u.id,
++    first_name: u.first_name,
++    last_name: u.last_name,
++    email: u.email,
++    role: (u.role || "customer").toLowerCase(),
++    is_verified: u.is_verified,
++    is_vendor: !!u.is_vendor,
++    wishlist: u.wishlist || [],
++  };
++}
++
++export function adaptCategory(c) {
++  return { id: c.id, name: c.name };
++}
++
++export function adaptProduct(p, categoriesById) {
++  const categoryName =
++    p.category_name || (categoriesById && categoriesById[p.category_id]) || "Uncategorized";
++  return {
++    id: p.id,
++    vendorId: p.vendor_id,
++    name: p.name,
++    category: categoryName,
++    brand: p.brand || p.vendor_name || "",
++    description: p.description || "",
++    price: Number(p.price) || 0,
++    stock: Number(p.stock) || 0,
++    rating: Number(p.rating) || 0,
++    reviewCount: Number(p.review_count) || 0,
++    sku: p.sku || "",
++    inStock: Number(p.stock) > 0,
++    variants: [],
++    image: p.image_url || "",
++    reviews: [],
++  };
++}
++
++export function adaptVendor(v) {
++  const status = (v.status || v.approval_status || "pending").toLowerCase();
++  return {
++    id: v.id,
++    userId: v.user_id,
++    business_name: v.business_name,
++    business_email: v.business_email,
++    business_phone: v.business_phone,
++    business_address: v.business_address,
++    city: v.city,
++    country: v.country,
++    description: v.description || "",
++    logo_url: v.logo_url || "",
++    website_url: v.website_url || "",
++    cnic_number: v.cnic_number || "",
++    verification_document_url: v.verification_document_url || "",
++    approval_status:
++      status === "approved" ? "Approved" : status === "rejected" ? "Rejected" : "Pending",
++    status: status === "approved" ? "active" : status,
++    is_active: status === "approved",
++    verification_status: v.verification_status || "not_submitted",
++    created_at: v.created_at,
++    // useful for the admin pending-list UI, which shows the applicant's name/email
++    ownerFirstName: v.first_name,
++    ownerLastName: v.last_name,
++    ownerEmail: v.user_email || v.email,
++  };
++}
++
++export function adaptOrder(o, items = []) {
++  return {
++    id: o.id,
++    customerName: o.customer_name || "",
++    customerEmail: o.customer_email || "",
++    date: (o.created_at || "").slice(0, 10),
++    status: o.status,
++    total_amount: Number(o.total_amount) || 0,
++    items: items.map((it) => ({
++      productId: it.product_id,
++      vendorId: it.vendor_id,
++      name: it.name,
++      price: Number(it.price) || 0,
++      qty: it.quantity,
++      status: it.status || o.status || "Processing",
++    })),
++  };
++}
+diff --git a/src/api/client.js b/src/api/client.js
+new file mode 100644
+index 0000000..9ed4ca3
+--- /dev/null
++++ b/src/api/client.js
+@@ -0,0 +1,79 @@
++/* ============================================================
++   API CLIENT
++   Thin wrapper around fetch() for talking to the real Double H
++   Marketplace backend. Handles the base URL, JSON headers, and
++   attaching the JWT access token to every authenticated request.
++
++   Configure the backend URL via the REACT_APP_API_URL env var
++   (see .env.example). Falls back to localhost for local dev.
++   ============================================================ */
++
++const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3000/api";
++
++const TOKEN_KEY = "dh_access_token";
++
++export function getToken() {
++  return localStorage.getItem(TOKEN_KEY) || "";
++}
++
++export function setToken(token) {
++  if (token) localStorage.setItem(TOKEN_KEY, token);
++  else localStorage.removeItem(TOKEN_KEY);
++}
++
++export class ApiError extends Error {
++  constructor(message, status, data) {
++    super(message);
++    this.name = "ApiError";
++    this.status = status;
++    this.data = data;
++  }
++}
++
++async function request(path, { method = "GET", body, auth = true } = {}) {
++  const headers = { "Content-Type": "application/json" };
++
++  if (auth) {
++    const token = getToken();
++    if (token) headers["Authorization"] = `Bearer ${token}`;
++  }
++
++  let res;
++  try {
++    res = await fetch(`${BASE_URL}${path}`, {
++      method,
++      headers,
++      body: body !== undefined ? JSON.stringify(body) : undefined,
++    });
++  } catch (err) {
++    throw new ApiError(
++      "Could not reach the server. Please check your connection and try again.",
++      null,
++      null
++    );
++  }
++
++  let data = null;
++  try {
++    data = await res.json();
++  } catch (e) {
++    // no JSON body — fine for some 200/204 responses
++  }
++
++  if (!res.ok) {
++    const message = (data && (data.message || data.error)) || `Request failed (${res.status})`;
++    throw new ApiError(message, res.status, data);
++  }
++
++  return data;
++}
++
++export const api = {
++  get: (path, opts) => request(path, { ...opts, method: "GET" }),
++  post: (path, body, opts) => request(path, { ...opts, method: "POST", body }),
++  put: (path, body, opts) => request(path, { ...opts, method: "PUT", body }),
++  patch: (path, body, opts) => request(path, { ...opts, method: "PATCH", body }),
++  delete: (path, opts) => request(path, { ...opts, method: "DELETE" }),
++};
++
++export { BASE_URL };
+diff --git a/src/components/Auth.jsx b/src/components/Auth.jsx
+index 84644a3..33f532c 100644
+--- a/src/components/Auth.jsx
++++ b/src/components/Auth.jsx
+@@ -13,21 +13,22 @@ import {
+ } from "lucide-react";
+ import logo from "../assets/logo.jpeg";
+ import {
+-  DEMO_LOGINS,
+-  generateOtp,
+   isValidEmail,
+   isValidNameToken,
+   sanitizeNameInput,
+   isValidPhone,
+   sanitizePhoneInput,
+ } from "../data/users";
++import { api } from "../api/client";
++import { adaptUser } from "../api/adapters";
+ 
+ const EMPTY_SIGNUP = { first_name: "", last_name: "", email: "", password: "", phone: "" };
+ const EMPTY_LOGIN = { email: "", password: "" };
+ 
+-export default function Auth({ users, onRegister, onLoginSuccess }) {
++export default function Auth({ onRegisterAndLogin, onLoginSuccess }) {
+   const [mode, setMode] = useState("login"); // "login" | "signup" | "verify"
+   const [showPassword, setShowPassword] = useState(false);
++  const [busy, setBusy] = useState(false);
+ 
+   const [loginForm, setLoginForm] = useState(EMPTY_LOGIN);
+   const [loginError, setLoginError] = useState("");
+@@ -35,7 +36,7 @@ export default function Auth({ users, onRegister, onLoginSuccess }) {
+   const [signupForm, setSignupForm] = useState(EMPTY_SIGNUP);
+   const [signupErrors, setSignupErrors] = useState({});
+ 
+-  const [pendingUser, setPendingUser] = useState(null); // { ...signupForm, otp }
++  const [pendingUser, setPendingUser] = useState(null); // signupForm, kept while verifying OTP
+   const [otpInput, setOtpInput] = useState("");
+   const [otpError, setOtpError] = useState("");
+   const [otpNotice, setOtpNotice] = useState("");
+@@ -52,7 +53,7 @@ export default function Auth({ users, onRegister, onLoginSuccess }) {
+     setLoginForm((prev) => ({ ...prev, [field]: value }));
+   }
+ 
+-  function handleLoginSubmit(e) {
++  async function handleLoginSubmit(e) {
+     e.preventDefault();
+     setLoginError("");
+ 
+@@ -61,23 +62,15 @@ export default function Auth({ users, onRegister, onLoginSuccess }) {
+       return;
+     }
+ 
+-    const match = users.find(
+-      (u) => u.email.toLowerCase() === loginForm.email.trim().toLowerCase()
+-    );
+-
+-    if (!match || match.password !== loginForm.password) {
+-      setLoginError("Invalid email or password.");
+-      return;
++    setBusy(true);
++    try {
++      const user = await onRegisterAndLogin(loginForm);
++      onLoginSuccess(user);
++    } catch (err) {
++      setLoginError(err.message || "Invalid email or password.");
++    } finally {
++      setBusy(false);
+     }
+-
+-    onLoginSuccess(match);
+-  }
+-
+-  function handleDemoLogin(demo) {
+-    setLoginForm({ email: demo.email, password: demo.password });
+-    setLoginError("");
+-    const match = users.find((u) => u.email === demo.email);
+-    if (match) onLoginSuccess(match);
+   }
+ 
+   function handleSignupChange(field, value) {
+@@ -97,8 +90,6 @@ export default function Auth({ users, onRegister, onLoginSuccess }) {
+       errors.last_name = "Letters only, no spaces or numbers.";
+     if (!signupForm.email.trim()) errors.email = "Email is required.";
+     else if (!isValidEmail(signupForm.email)) errors.email = "Enter a valid email address.";
+-    else if (users.some((u) => u.email.toLowerCase() === signupForm.email.trim().toLowerCase()))
+-      errors.email = "An account with this email already exists.";
+     if (!signupForm.password || signupForm.password.length < 6)
+       errors.password = "Password must be at least 6 characters.";
+     if (signupForm.phone && !isValidPhone(signupForm.phone))
+@@ -106,50 +97,85 @@ export default function Auth({ users, onRegister, onLoginSuccess }) {
+     return errors;
+   }
+ 
+-  function handleSignupSubmit(e) {
++  async function handleSignupSubmit(e) {
+     e.preventDefault();
+     const errors = validateSignup();
+     setSignupErrors(errors);
+     if (Object.keys(errors).length > 0) return;
+ 
+-    const otp = generateOtp();
+-    setPendingUser({ ...signupForm, otp });
+-    setOtpInput("");
+-    setOtpError("");
+-    setOtpNotice(`Dev mode: your verification code is ${otp} (this would be emailed in production).`);
+-    setMode("verify");
++    setBusy(true);
++    try {
++      const res = await api.post(
++        "/auth/register",
++        {
++          first_name: signupForm.first_name.trim(),
++          last_name: signupForm.last_name.trim(),
++          email: signupForm.email.trim(),
++          password: signupForm.password,
++          phone: signupForm.phone.trim() || undefined,
++        },
++        { auth: false }
++      );
++      setPendingUser({ ...signupForm });
++      setOtpInput("");
++      setOtpError("");
++      // The backend currently returns the OTP directly in dev mode (it will be
++      // emailed in production instead) so it can be tested end-to-end here.
++      const devOtp = res.emailVerificationOtp;
++      setOtpNotice(
++        devOtp
++          ? `Dev mode: your verification code is ${devOtp} (this would be emailed in production).`
++          : "A verification code has been sent to your email."
++      );
++      setMode("verify");
++    } catch (err) {
++      setSignupErrors({ email: err.message || "Could not create your account." });
++    } finally {
++      setBusy(false);
++    }
+   }
+ 
+-  function handleResendOtp() {
+-    const otp = generateOtp();
+-    setPendingUser((prev) => ({ ...prev, otp }));
+-    setOtpNotice(`New code sent. Dev mode: your verification code is ${otp}.`);
+-    setOtpError("");
+-    setOtpInput("");
++  async function handleResendOtp() {
++    setBusy(true);
++    try {
++      const res = await api.post(
++        "/auth/resend-verification",
++        { email: pendingUser.email.trim() },
++        { auth: false }
++      );
++      const devOtp = res.emailVerificationOtp;
++      setOtpNotice(
++        devOtp ? `New code sent. Dev mode: your verification code is ${devOtp}.` : "New code sent."
++      );
++      setOtpError("");
++      setOtpInput("");
++    } catch (err) {
++      setOtpError(err.message || "Could not resend the code.");
++    } finally {
++      setBusy(false);
++    }
+   }
+ 
+-  function handleVerifySubmit(e) {
++  async function handleVerifySubmit(e) {
+     e.preventDefault();
+-    if (otpInput.trim() !== pendingUser.otp) {
+-      setOtpError("Incorrect code. Please try again.");
+-      return;
++    setBusy(true);
++    setOtpError("");
++    try {
++      await api.post(
++        "/auth/verify-email",
++        { email: pendingUser.email.trim(), otp: otpInput.trim() },
++        { auth: false }
++      );
++      const user = await onRegisterAndLogin({
++        email: pendingUser.email.trim(),
++        password: pendingUser.password,
++      });
++      onLoginSuccess(user);
++    } catch (err) {
++      setOtpError(err.message || "Incorrect code. Please try again.");
++    } finally {
++      setBusy(false);
+     }
+-
+-    const newUser = {
+-      id: Date.now(),
+-      first_name: pendingUser.first_name.trim(),
+-      last_name: pendingUser.last_name.trim(),
+-      email: pendingUser.email.trim(),
+-      password: pendingUser.password,
+-      phone: pendingUser.phone.trim(),
+-      role: "customer",
+-      is_verified: true,
+-      is_vendor: false,
+-      wishlist: [],
+-    };
+-
+-    onRegister(newUser);
+-    onLoginSuccess(newUser);
+   }
+ 
+   return (
+@@ -204,26 +230,11 @@ export default function Auth({ users, onRegister, onLoginSuccess }) {
+ 
+               {loginError && <p className="auth-error">{loginError}</p>}
+ 
+-              <button type="submit" className="btn btn-primary auth-submit">
+-                <LogIn size={15} /> Sign In
++              <button type="submit" className="btn btn-primary auth-submit" disabled={busy}>
++                <LogIn size={15} /> {busy ? "Signing in…" : "Sign In"}
+               </button>
+             </form>
+ 
+-            <div className="auth-demo">
+-              <span>Quick demo access:</span>
+-              <div className="demo-chip-row">
+-                {DEMO_LOGINS.map((demo) => (
+-                  <button
+-                    key={demo.role}
+-                    className="demo-chip"
+-                    onClick={() => handleDemoLogin(demo)}
+-                  >
+-                    {demo.label}
+-                  </button>
+-                ))}
+-              </div>
+-            </div>
+-
+             <p className="auth-switch">
+               Don't have an account?{" "}
+               <button onClick={() => switchMode("signup")}>Create one</button>
+@@ -326,8 +337,8 @@ export default function Auth({ users, onRegister, onLoginSuccess }) {
+                 {signupErrors.phone && <em className="auth-field-error">{signupErrors.phone}</em>}
+               </label>
+ 
+-              <button type="submit" className="btn btn-primary auth-submit">
+-                <UserPlus size={15} /> Create Account
++              <button type="submit" className="btn btn-primary auth-submit" disabled={busy}>
++                <UserPlus size={15} /> {busy ? "Creating…" : "Create Account"}
+               </button>
+             </form>
+ 
+@@ -370,8 +381,8 @@ export default function Auth({ users, onRegister, onLoginSuccess }) {
+ 
+               {otpError && <p className="auth-error">{otpError}</p>}
+ 
+-              <button type="submit" className="btn btn-primary auth-submit">
+-                <ShieldCheck size={15} /> Verify &amp; Continue
++              <button type="submit" className="btn btn-primary auth-submit" disabled={busy}>
++                <ShieldCheck size={15} /> {busy ? "Verifying…" : "Verify & Continue"}
+               </button>
+             </form>
+ 
+diff --git a/src/components/CartCheckout.jsx b/src/components/CartCheckout.jsx
+index 68ebf7a..74ba005 100644
+--- a/src/components/CartCheckout.jsx
++++ b/src/components/CartCheckout.jsx
+@@ -1,4 +1,4 @@
+-import React, { useState } from "react";
++import React, { useState, useEffect } from "react";
+ import {
+   Home,
+   ChevronRight,
+@@ -12,8 +12,10 @@ import {
+   Landmark,
+   Truck,
+   CheckCircle2,
++  MapPin,
+ } from "lucide-react";
+ import { formatPrice } from "../data/products";
++import { api } from "../api/client";
+ 
+ const PAYMENT_METHODS = [
+   { label: "Cash on Delivery", icon: Truck },
+@@ -25,9 +27,37 @@ const PAYMENT_METHODS = [
+ const FREE_SHIPPING_THRESHOLD = 5000;
+ const FLAT_SHIPPING_FEE = 250;
+ 
++const EMPTY_ADDRESS = {
++  full_name: "",
++  phone: "",
++  address_line1: "",
++  city: "",
++  state: "",
++  postal_code: "",
++};
++
+ export default function CartCheckout({ cart, products, onUpdateQty, onPlaceOrder, onGoHome, onContinueShopping }) {
+   const [paymentMethod, setPaymentMethod] = useState("Cash on Delivery");
+   const [placed, setPlaced] = useState(false);
++  const [placing, setPlacing] = useState(false);
++  const [placeError, setPlaceError] = useState("");
++
++  const [addresses, setAddresses] = useState([]);
++  const [selectedAddressId, setSelectedAddressId] = useState(null);
++  const [addressForm, setAddressForm] = useState(EMPTY_ADDRESS);
++  const [addressErrors, setAddressErrors] = useState({});
++  const [savingAddress, setSavingAddress] = useState(false);
++
++  useEffect(() => {
++    api
++      .get("/addresses")
++      .then((res) => {
++        const rows = Array.isArray(res) ? res : res.addresses || [];
++        setAddresses(rows);
++        if (rows.length > 0) setSelectedAddressId(rows[0].id);
++      })
++      .catch(() => {});
++  }, []);
+ 
+   const lineItems = cart
+     .map((entry) => {
+@@ -43,11 +73,49 @@ export default function CartCheckout({ cart, products, onUpdateQty, onPlaceOrder
+   const total = subtotal + shipping + tax;
+   const amountToFreeShipping = Math.max(FREE_SHIPPING_THRESHOLD - subtotal, 0);
+ 
+-  function handlePlaceOrder() {
+-    if (lineItems.length === 0) return;
+-    onPlaceOrder();
+-    setPlaced(true);
+-    setTimeout(() => setPlaced(false), 2500);
++  function validateAddress() {
++    const errors = {};
++    if (!addressForm.full_name.trim()) errors.full_name = "Required";
++    if (!/^[0-9]{10,15}$/.test(addressForm.phone.trim())) errors.phone = "10-15 digit phone number";
++    if (!addressForm.address_line1.trim()) errors.address_line1 = "Required";
++    if (!addressForm.city.trim()) errors.city = "Required";
++    if (!addressForm.state.trim()) errors.state = "Required";
++    if (!/^[0-9A-Za-z-]{3,10}$/.test(addressForm.postal_code.trim())) errors.postal_code = "Required";
++    return errors;
++  }
++
++  async function handleSaveAddress(e) {
++    e.preventDefault();
++    const errors = validateAddress();
++    setAddressErrors(errors);
++    if (Object.keys(errors).length > 0) return;
++
++    setSavingAddress(true);
++    try {
++      const res = await api.post("/addresses", { ...addressForm, country: "Pakistan" });
++      const saved = res.address || res;
++      setAddresses((prev) => [...prev, saved]);
++      setSelectedAddressId(saved.id);
++      setAddressForm(EMPTY_ADDRESS);
++    } catch (err) {
++      setAddressErrors({ address_line1: err.message || "Could not save this address." });
++    } finally {
++      setSavingAddress(false);
++    }
++  }
++
++  async function handlePlaceOrder() {
++    if (lineItems.length === 0 || !selectedAddressId) return;
++    setPlacing(true);
++    setPlaceError("");
++    const ok = await onPlaceOrder(selectedAddressId);
++    setPlacing(false);
++    if (ok) {
++      setPlaced(true);
++      setTimeout(() => setPlaced(false), 2500);
++    } else {
++      setPlaceError("Could not place your order. Please try again.");
++    }
+   }
+ 
+   return (
+@@ -124,6 +192,76 @@ export default function CartCheckout({ cart, products, onUpdateQty, onPlaceOrder
+         </div>
+ 
+         <div className="order-summary">
++          <h4 className="payment-title">
++            <MapPin size={14} className="inline-icon" /> Shipping Address
++          </h4>
++
++          {addresses.length > 0 && (
++            <div className="payment-options">
++              {addresses.map((a) => (
++                <label key={a.id} className="payment-option">
++                  <input
++                    type="radio"
++                    name="address"
++                    checked={selectedAddressId === a.id}
++                    onChange={() => setSelectedAddressId(a.id)}
++                  />
++                  {a.full_name} — {a.address_line1}, {a.city}
++                </label>
++              ))}
++            </div>
++          )}
++
++          <form className="inline-form" onSubmit={handleSaveAddress} style={{ marginTop: 10 }}>
++            <input
++              placeholder="Full name"
++              value={addressForm.full_name}
++              onChange={(e) => setAddressForm((p) => ({ ...p, full_name: e.target.value }))}
++            />
++            {addressErrors.full_name && <em className="auth-field-error">{addressErrors.full_name}</em>}
++
++            <input
++              placeholder="Phone (e.g. 03001234567)"
++              value={addressForm.phone}
++              onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value }))}
++            />
++            {addressErrors.phone && <em className="auth-field-error">{addressErrors.phone}</em>}
++
++            <input
++              placeholder="Address line 1"
++              value={addressForm.address_line1}
++              onChange={(e) => setAddressForm((p) => ({ ...p, address_line1: e.target.value }))}
++            />
++            {addressErrors.address_line1 && (
++              <em className="auth-field-error">{addressErrors.address_line1}</em>
++            )}
++
++            <input
++              placeholder="City"
++              value={addressForm.city}
++              onChange={(e) => setAddressForm((p) => ({ ...p, city: e.target.value }))}
++            />
++            {addressErrors.city && <em className="auth-field-error">{addressErrors.city}</em>}
++
++            <input
++              placeholder="State/Province"
++              value={addressForm.state}
++              onChange={(e) => setAddressForm((p) => ({ ...p, state: e.target.value }))}
++            />
++            {addressErrors.state && <em className="auth-field-error">{addressErrors.state}</em>}
++
++            <input
++              placeholder="Postal code"
++              value={addressForm.postal_code}
++              onChange={(e) => setAddressForm((p) => ({ ...p, postal_code: e.target.value }))}
++            />
++            {addressErrors.postal_code && <em className="auth-field-error">{addressErrors.postal_code}</em>}
++
++            <button type="submit" className="btn btn-outline" disabled={savingAddress}>
++              {savingAddress ? "Saving…" : "Add this address"}
++            </button>
++          </form>
++
+           <h3>Order Summary</h3>
+           <div className="summary-row">
+             <span>Subtotal</span>
+@@ -160,15 +298,22 @@ export default function CartCheckout({ cart, products, onUpdateQty, onPlaceOrder
+             })}
+           </div>
+ 
++          {placeError && <p className="auth-error">{placeError}</p>}
++          {lineItems.length > 0 && !selectedAddressId && (
++            <p className="shipping-hint">Add a shipping address above to continue.</p>
++          )}
++
+           <button
+             className="btn btn-primary place-order"
+             onClick={handlePlaceOrder}
+-            disabled={lineItems.length === 0}
++            disabled={lineItems.length === 0 || !selectedAddressId || placing}
+           >
+             {placed ? (
+               <>
+                 <CheckCircle2 size={16} /> Order Placed!
+               </>
++            ) : placing ? (
++              "Placing…"
+             ) : (
+               "Place Order"
+             )}
